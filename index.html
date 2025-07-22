@@ -823,14 +823,14 @@ Cristy
                 // Add parsed expenses by person
                 text += '*GASTOS*\n';
                 names.forEach(name => {
-                    text += `${name}:\n`;
+                    text += `${name}\n`;
                     const person = currentPeopleData[name];
                     if (person && person.expenses.length > 0) {
                         person.expenses.forEach(expense => {
                             const formattedAmount = formatNumber(expense.amount);
                             const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
                             const description = expense.description ? ` ${expense.description}` : '';
-                            text += `  ${paddedAmount}${description}\n`;
+                            text += ` ${paddedAmount}${description}\n`;
                         });
                     }
                     text += '\n';
@@ -844,7 +844,7 @@ Cristy
                     text += `${name} pagou ${formatNumber(personTotal)} de ${formatNumber(personShare)}\n`;
                 });
 
-                text += `\nTotal: ${formatNumber(totalExpenses)}\n`;
+                text += `\nTotal = ${formatNumber(totalExpenses)}\n`;
 
                 // Add settlements
                 text += '\n*ACERTOS*\n';
