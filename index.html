@@ -9,9 +9,9 @@
     <link rel="manifest" href="manifest.json">
 
     <!-- iOS PWA Meta Tags -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Splitwiser">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-title" content="Splitwiser">
 
     <link rel="icon" type="image/png" href="icons/icon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/png" href="icons/icon-192x192.png" sizes="192x192" />
@@ -132,6 +132,7 @@
             border: 1px solid var(--border-primary);
             overflow: hidden;
             transition: background-color 0.2s, border-color 0.2s;
+            text-wrap: balance;
         }
 
         .person-summary {
@@ -155,7 +156,7 @@
         }
 
         .person-summary.total-row {
-            font-weight: 600;
+            font-weight: bold;
             border-left-color: var(--border-total);
             margin-top: 10px;
             margin-bottom: 10px;
@@ -179,8 +180,6 @@
             line-height: 1.3;
             min-width: 100px;
         }
-
-
 
         .settlement-wrapper {
             display: flex;
@@ -296,6 +295,8 @@
 
         .settlement-wrapper.settlement-success .settlement-text {
             color: var(--text-success);
+            text-align: center;
+            font-weight: bold;
         }
 
         .settlement-wrapper.settlement-success .settle-button {
@@ -338,11 +339,11 @@
         @keyframes fadeOut {
             from {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateY(0) scale(1.02);
             }
             to {
                 opacity: 0;
-                transform: translateY(-10px);
+                transform: translateY(-10px) scale(1.02);
             }
         }
 
@@ -374,13 +375,15 @@
     </style>
 </head>
 <body>
-    <textarea id="expenseInput" placeholder="David
+    <textarea id="expenseInput" placeholder="ADICIONE DESPESAS NO FORMATO:
+
+David
 18,11 Pedágio (por padrão dividido entre todos)
 1.200,00 Hotel (pode usar ponto ou vírgula)
 
-Ana 2 (grupo de duas pessoas, terá parte maior na divisão)
+Ana 3 (grupo de três, terá parte maior na divisão)
 45 Restaurante (não precisa colocar centavos)
-23 Lanche - David, Ana (dividido entre David e Ana)
+23 Lanche - David, Ana (dividido somente entre David e Ana)
 
 Cristy
 50 (descrição opcional)
@@ -396,7 +399,7 @@ Cristy
 
     <div class="actions">
         <button class="copy-button" id="copyButton" onclick="copyToClipboard()" style="display: none;">COPIAR RESUMO</button>
-        <button class="reset-button" id="resetButton" onclick="resetData()">LIMPAR</button>
+        <button class="reset-button" id="resetButton" onclick="resetData()" style="display: none;">LIMPAR</button>
     </div>
 
     <script>
@@ -1123,6 +1126,74 @@ Cristy
             }
         }
 
+        function formatInputText() {
+            try {
+                const names = Object.keys(currentPeopleData);
+                if (names.length === 0) return '';
+
+                let formattedText = '';
+
+                // Calculate maximum width for amounts across all expenses using shared expenses
+                let maxWidth = 0;
+                currentSharedExpenses.forEach(sharedExpense => {
+                    const width = formatNumber(sharedExpense.amount).length;
+                    if (width > maxWidth) maxWidth = width;
+                });
+                
+                // Ensure minimum width for proper alignment
+                if (maxWidth === 0) maxWidth = 8;
+
+                // Format expenses by person using shared expense data to reconstruct original format
+                names.forEach(name => {
+                    const person = currentPeopleData[name];
+                    const displayName = person ? person.displayName : name;
+                    const parts = person ? person.parts : 1;
+                    const partsText = parts > 1 ? ` (${parts})` : '';
+                    formattedText += `${displayName}${partsText}\n`;
+                    
+                    if (person && person.expenses.length > 0) {
+                        // Use shared expenses to reconstruct the original format
+                        const processedExpenses = new Set();
+                        
+                        currentSharedExpenses.forEach(sharedExpense => {
+                            if (sharedExpense.paidBy === name && !processedExpenses.has(sharedExpense)) {
+                                processedExpenses.add(sharedExpense);
+                                
+                                const formattedAmount = formatNumber(sharedExpense.amount);
+                                const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
+                                
+                                let description = sharedExpense.description || '';
+                                
+                                // Check if this expense is shared with specific people (not all)
+                                const allNames = Object.keys(currentPeopleData);
+                                const isSharedWithAll = sharedExpense.sharedWith.length === allNames.length && 
+                                                       sharedExpense.sharedWith.every(p => allNames.includes(p));
+                                
+                                if (!isSharedWithAll && sharedExpense.sharedWith.length > 1) {
+                                    // Add shared participants to description
+                                    const participants = sharedExpense.sharedWith.map(p => {
+                                        const participantData = currentPeopleData[p];
+                                        return participantData ? participantData.displayName : p;
+                                    }).join(', ');
+                                    description = description ? `${description} - ${participants}` : `- ${participants}`;
+                                }
+                                
+                                const fullDescription = description ? ` ${description}` : '';
+                                formattedText += ` ${paddedAmount}${fullDescription}\n`;
+                            }
+                        });
+                        
+                        formattedText += '\n';
+                    }
+                });
+
+                return formattedText.trim();
+            } catch (error) {
+                console.error('Error formatting input text:', error);
+                return '';
+            }
+        }
+
         function copyToClipboard() {
             try {
                 const textSummary = generateTextSummary();
@@ -1130,6 +1201,15 @@ Cristy
                 if (!textSummary) {
                     alert('Nada para copiar. Adicione alguns gastos primeiro.');
                     return;
+                }
+
+                // Also format and update the input text
+                const formattedInput = formatInputText();
+                if (formattedInput) {
+                    const textarea = document.getElementById('expenseInput');
+                    textarea.value = formattedInput;
+                    autoExpandTextarea(textarea);
+                    saveToLocalStorage();
                 }
 
                 // Try to use the modern clipboard API
@@ -1214,13 +1294,15 @@ Cristy
                 const input = document.getElementById('expenseInput').value;
                 const resultsDiv = document.getElementById('results');
                 const copyButton = document.getElementById('copyButton');
+                const resetButton = document.getElementById('resetButton');
 
                 // Validate input and show warnings
                 const warnings = validateExpenses(input);
 
                 if (!input.trim()) {
-                    resultsDiv.innerHTML = '<div class="no-data">Adicione despesas acima para ver a divisão e acertos</div>';
+                    resultsDiv.innerHTML = '<div class="no-data">Adicione despesas acima para calcular a divisão e os acertos</div>';
                     copyButton.style.display = 'none';
+                    resetButton.style.display = 'none';
                     displayValidationWarnings([]);
                     currentPeopleData = {};
                     currentSettlements = [];
@@ -1240,6 +1322,7 @@ Cristy
                 if (warnings.length > 0) {
                     resultsDiv.innerHTML = '<div class="no-data">Verifique os erros acima antes de continuar</div>';
                     copyButton.style.display = 'none';
+                    resetButton.style.display = 'none';
                     currentPeopleData = {};
                     currentSettlements = [];
                     currentSharedExpenses = [];
@@ -1257,6 +1340,7 @@ Cristy
                 if (names.length === 0) {
                     resultsDiv.innerHTML = '<div class="no-data">Nenhum nome válido encontrado</div>';
                     copyButton.style.display = 'none';
+                    resetButton.style.display = 'none';
                     currentPeopleData = {};
                     currentSettlements = [];
                     currentSharedExpenses = [];
@@ -1402,12 +1486,15 @@ Cristy
 
                     // Show copy button when there are results
                     copyButton.style.display = 'block';
+                    // Show reset button when there are results
+                    resetButton.style.display = 'block';
                 }
 
             } catch (error) {
                 console.error('Error updating results:', error);
                 document.getElementById('results').innerHTML = '<div class="no-data">Erro ao processar os dados. Verifique o formato.</div>';
                 document.getElementById('copyButton').style.display = 'none';
+                document.getElementById('resetButton').style.display = 'none';
                 currentPeopleData = {};
                 currentSettlements = [];
                 currentSharedExpenses = [];
@@ -1485,7 +1572,7 @@ Cristy
                         // Replace the settlement text with "Acertado"
                         const settlementText = settlementWrapper.querySelector('.settlement-text');
                         if (settlementText) {
-                            settlementText.textContent = 'Acertado';
+                            settlementText.textContent = 'ACERTADO';
                         }
 
                         // Hide the button to prevent multiple clicks
@@ -1556,8 +1643,9 @@ Cristy
                     // Clear results
                     document.getElementById('results').innerHTML = '<div class="no-data">Adicione despesas acima para ver a divisão e acertos</div>';
 
-                    // Hide copy button
+                    // Hide copy button and reset button
                     document.getElementById('copyButton').style.display = 'none';
+                    document.getElementById('resetButton').style.display = 'none';
 
                     // Clear localStorage
                     localStorage.removeItem('expenseInputData');
