@@ -72,6 +72,7 @@
 
         body {
             font-family: var(--font-family);
+            font-size: 14px;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
@@ -120,31 +121,31 @@
             transition: background-color 0.2s, border-color 0.2s;
         }
 
-        .summary {
-            padding: 20px;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border-primary);
-            transition: background-color 0.2s, border-color 0.2s;
-        }
-
-        .summary h2 {
-            margin: 0 0 15px 0;
-            font-size: 1.5rem;
-            color: var(--text-primary);
-        }
-
         .person-summary {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            padding: 8px 12px;
-            background: var(--bg-secondary);
-            border-radius: 4px;
+            margin-bottom: 0;
+            padding: 20px;
+            background: var(--bg-tertiary);
             border-left: 4px solid var(--border-summary);
             transition: background-color 0.2s;
             flex-wrap: wrap;
             gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .person-summary:last-of-type {
+            border-bottom: none;
+        }
+
+        .person-summary.total-row {
+            font-weight: 600;
+            border-left-color: var(--border-total);
+            margin-top: 10px;
+            margin-bottom: 10px;
         }
 
         .person-name {
@@ -166,47 +167,46 @@
             min-width: 100px;
         }
 
-        .settlements {
-            padding: 20px;
-        }
 
-        .settlements h2 {
-            margin: 0 0 15px 0;
-            font-size: 1.5rem;
-            color: var(--text-primary);
-        }
 
-        .settlement-item {
+        .settlement-wrapper {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 15px;
-            margin-bottom: 8px;
-            background: var(--bg-accent);
-            border-radius: 6px;
+            margin-bottom: 0;
+            padding: 20px;
+            background: var(--bg-tertiary);
             border-left: 4px solid var(--border-accent);
             transition: background-color 0.2s;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .settlement-wrapper:last-child {
+            border-bottom: none;
         }
 
         .settlement-text {
             color: var(--text-accent);
             font-weight: 500;
-        }
-
-        .settlement-amount {
-            color: var(--text-amount);
-            font-weight: 600;
+            flex: 1;
         }
 
         .no-data {
-            padding: 40px;
+            padding: 40px 20px;
             text-align: center;
             color: var(--text-muted);
             font-style: italic;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         button {
             font-family: var(--font-family);
+            font-size: 16px;
             background: var(--border-focus);
             color: black;
             border: none;
@@ -256,14 +256,7 @@
             border-radius: 8px;
             padding: 12px;
             margin: 10px 0;
-            font-size: 14px;
             line-height: 1.4;
-        }
-
-        .validation-warning h3 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            font-weight: bold;
         }
 
         .validation-warning .warning-line {
@@ -285,9 +278,7 @@
     </style>
 </head>
 <body>
-    <textarea id="expenseInput" placeholder="Coloque nomes e despesas no seguinte formato:
-
-David
+    <textarea id="expenseInput" placeholder="David
 18,11 Pedágio (por padrão dividido entre todos)
 1.200,00 Hotel (pode usar ponto ou vírgula)
 
@@ -1172,7 +1163,7 @@ Cristy
                 // Calculate fair share amounts using the helper function
                 const fairShares = calculateFairShares(names, sharedExpenses, people);
 
-                let html = '<div class="summary">';
+                let html = '';
 
                 // Show individual totals with fair shares
                 names.forEach(name => {
@@ -1190,15 +1181,12 @@ Cristy
                 });
 
                 html += `
-                    <div class="person-summary" style="border-left-color: var(--border-total); font-weight: 600; margin-top: 10px;">
+                    <div class="person-summary total-row">
                         <span class="person-name">Total</span>
                         <span class="person-total">${formatNumber(totalExpenses)}</span>
                     </div>`;
 
-                html += '</div>';
-
                 // Show settlements
-                html += '<div class="settlements">';
 
                 if (totalExpenses === 0) {
                     html += '<div class="no-data">Nenhuma despesa para acertar</div>';
@@ -1211,7 +1199,7 @@ Cristy
                         const fromName = fromPerson ? fromPerson.displayName : settlement.from;
                         const toName = toPerson ? toPerson.displayName : settlement.to;
                         html += `
-                            <div class="settlement-item">
+                            <div class="settlement-wrapper">
                                 <span class="settlement-text">${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}</span>
                                 <button class="settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
                             </div>
@@ -1219,7 +1207,6 @@ Cristy
                     });
                 }
 
-                html += '</div>';
                 resultsDiv.innerHTML = html;
 
                 // Show copy button when there are results
