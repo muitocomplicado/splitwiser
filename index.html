@@ -398,9 +398,32 @@ Cristy
     </div>
 
     <div class="actions">
-        <button class="copy-button" id="copyButton" onclick="copyToClipboard()" style="display: none;">COPIAR RESUMO</button>
-        <button class="reset-button" id="resetButton" onclick="resetData()" style="display: none;">LIMPAR</button>
+        <button class="copy-button" id="copyButton" style="display: none;">COPIAR RESUMO</button>
+        <button class="reset-button" id="resetButton" style="display: none;">LIMPAR</button>
     </div>
+
+    <!-- Web Component Templates -->
+    <template id="person-summary-template">
+        <div class="person-summary">
+            <span class="person-name"></span>
+            <span class="person-total"></span>
+        </div>
+    </template>
+
+    <template id="settlement-template">
+        <div class="settlement-wrapper">
+            <span class="settlement-text"></span>
+            <button class="settle-button">✓<span class="settle-text"> ACERTADO</span></button>
+        </div>
+    </template>
+
+    <template id="no-data-template">
+        <div class="no-data"></div>
+    </template>
+
+    <template id="validation-warning-template">
+        <div class="warning-line"></div>
+    </template>
 
     <script>
         // Global error handler
@@ -509,7 +532,7 @@ Cristy
             handleProcessingError(error, fallbackHTML = null) {
                 console.error('Processing Error:', error);
                 const resultsDiv = document.getElementById('results');
-                resultsDiv.innerHTML = fallbackHTML || `<div class="no-data">${CONSTANTS.MESSAGES.PROCESSING_ERROR}</div>`;
+                resultsDiv.innerHTML = fallbackHTML || generateNoDataHTML(CONSTANTS.MESSAGES.PROCESSING_ERROR);
                 setButtonVisibility(false);
                 resetGlobalState();
             },
@@ -539,16 +562,26 @@ Cristy
 
         // Utility function to generate person summary HTML
         function generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay) {
+            const template = document.getElementById('person-summary-template');
+            const clone = template.content.cloneNode(true);
+
             const partsText = parts > 1 ? ` (${parts})` : '';
             const animationClass = shouldAnimate ? 'slide-in' : '';
-            const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
 
-            return `
-                <div class="person-summary ${animationClass}" ${animationStyle}>
-                    <span class="person-name">${escapeHtml(displayName)}${partsText}</span>
-                    <span class="person-total">${formatNumber(fairShare)}</span>
-                </div>
-            `;
+            const wrapper = clone.querySelector('.person-summary');
+            wrapper.className = `person-summary ${animationClass}`;
+
+            if (shouldAnimate) {
+                wrapper.style.animationDelay = `${animationDelay}ms`;
+            }
+
+            clone.querySelector('.person-name').textContent = `${escapeHtml(displayName)}${partsText}`;
+            clone.querySelector('.person-total').textContent = formatNumber(fairShare);
+
+            // Create a temporary div to get the outerHTML
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(clone);
+            return tempDiv.innerHTML;
         }
 
         // Utility function to generate settlement HTML
@@ -558,15 +591,53 @@ Cristy
             const fromName = fromPerson ? fromPerson.displayName : settlement.from;
             const toName = toPerson ? toPerson.displayName : settlement.to;
 
-            const animationClass = shouldAnimate ? 'slide-in' : '';
-            const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+            const template = document.getElementById('settlement-template');
+            const clone = template.content.cloneNode(true);
 
-            return `
-                <div class="settlement-wrapper ${animationClass}" data-settlement-index="${index}" ${animationStyle}>
-                    <span class="settlement-text">${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}</span>
-                    <button class="settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
-                </div>
-            `;
+            const animationClass = shouldAnimate ? 'slide-in' : '';
+
+            const wrapper = clone.querySelector('.settlement-wrapper');
+            wrapper.className = `settlement-wrapper ${animationClass}`;
+            wrapper.dataset.settlementIndex = index;
+
+            if (shouldAnimate) {
+                wrapper.style.animationDelay = `${animationDelay}ms`;
+            }
+
+            clone.querySelector('.settlement-text').textContent = `${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}`;
+
+
+
+            // Create a temporary div to get the outerHTML
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(clone);
+            return tempDiv.innerHTML;
+        }
+
+        // Utility function to generate no-data message HTML using template
+        function generateNoDataHTML(message) {
+            const template = document.getElementById('no-data-template');
+            const clone = template.content.cloneNode(true);
+
+            clone.querySelector('.no-data').textContent = message;
+
+            // Create a temporary div to get the outerHTML
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(clone);
+            return tempDiv.innerHTML;
+        }
+
+        // Utility function to generate validation warning HTML using template
+        function generateValidationWarningHTML(errorMessage) {
+            const template = document.getElementById('validation-warning-template');
+            const clone = template.content.cloneNode(true);
+
+            clone.querySelector('.warning-line').textContent = errorMessage;
+
+            // Create a temporary div to get the outerHTML
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(clone);
+            return tempDiv.innerHTML;
         }
 
         function findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
@@ -1206,6 +1277,26 @@ Cristy
             }
         }
 
+        function applyFormattedTextToTextarea(saveToStorage = true) {
+            try {
+                const textarea = document.getElementById('expenseInput');
+                const formattedText = formatInputText();
+                
+                if (formattedText && formattedText !== textarea.value) {
+                    textarea.value = formattedText;
+                    autoExpandTextarea(textarea);
+                    if (saveToStorage) {
+                        saveToLocalStorage();
+                    }
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                ErrorHandler.logWarning('Apply formatted text error', error);
+                return false;
+            }
+        }
+
         function formatInputText() {
             try {
                 const names = Object.keys(currentPeopleData);
@@ -1285,13 +1376,7 @@ Cristy
                 }
 
                 // Also format and update the input text
-                const formattedInput = formatInputText();
-                if (formattedInput) {
-                    const textarea = document.getElementById('expenseInput');
-                    textarea.value = formattedInput;
-                    autoExpandTextarea(textarea);
-                    saveToLocalStorage();
-                }
+                applyFormattedTextToTextarea();
 
                 // Try to use the modern clipboard API
                 if (navigator.clipboard && window.isSecureContext) {
@@ -1358,11 +1443,7 @@ Cristy
 
             let content = '';
             warnings.forEach(warning => {
-                content += `
-                    <div>
-                        ${warning.error}
-                    </div>
-                `;
+                content += generateValidationWarningHTML(warning.error);
             });
 
             contentDiv.innerHTML = content;
@@ -1380,7 +1461,7 @@ Cristy
                 const warnings = validateExpenses(input);
 
                 if (!input.trim()) {
-                    resultsDiv.innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.NO_DATA_INITIAL}</div>`;
+                    resultsDiv.innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.NO_DATA_INITIAL);
                     setButtonVisibility(false);
                     displayValidationWarnings([]);
                     resetGlobalState();
@@ -1392,7 +1473,7 @@ Cristy
 
                 // If there are critical validation errors, don't proceed with parsing
                 if (warnings.length > 0) {
-                    resultsDiv.innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.CHECK_ERRORS}</div>`;
+                    resultsDiv.innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.CHECK_ERRORS);
                     setButtonVisibility(false);
                     resetGlobalState();
                     return;
@@ -1402,7 +1483,7 @@ Cristy
                 const names = Object.keys(people);
 
                 if (names.length === 0) {
-                    resultsDiv.innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.NO_NAMES_FOUND}</div>`;
+                    resultsDiv.innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.NO_NAMES_FOUND);
                     setButtonVisibility(false);
                     resetGlobalState();
                     return;
@@ -1498,9 +1579,9 @@ Cristy
 
                     // Show settlements
                     if (totalExpenses === 0) {
-                        html += `<div class="no-data">${CONSTANTS.MESSAGES.NO_EXPENSES_TO_SETTLE}</div>`;
+                        html += generateNoDataHTML(CONSTANTS.MESSAGES.NO_EXPENSES_TO_SETTLE);
                     } else if (currentSettlements.length === 0) {
-                        html += `<div class="no-data">${CONSTANTS.MESSAGES.ALL_SETTLED}</div>`;
+                        html += generateNoDataHTML(CONSTANTS.MESSAGES.ALL_SETTLED);
                     } else {
                         currentSettlements.forEach((settlement, index) => {
                             const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
@@ -1592,13 +1673,7 @@ Cristy
                         currentSharedExpenses = sharedExpenses;
 
                         // Now reformat the input text with updated data
-                        const formattedText = formatInputText();
-
-                        if (formattedText) {
-                            textarea.value = formattedText;
-                            // Auto-expand textarea after formatting
-                            autoExpandTextarea(textarea);
-                        }
+                        applyFormattedTextToTextarea(false); // Don't save to storage here, we'll save below
                     }
 
                     // Save to localStorage after updating textarea
@@ -1637,6 +1712,17 @@ Cristy
             }
         }
 
+        // Event delegation for settle buttons
+        document.getElementById('results').addEventListener('click', function(event) {
+            if (event.target.closest('.settle-button')) {
+                const settlementWrapper = event.target.closest('.settlement-wrapper');
+                const settlementIndex = parseInt(settlementWrapper.dataset.settlementIndex);
+                if (!isNaN(settlementIndex)) {
+                    settlePayment(settlementIndex);
+                }
+            }
+        });
+
         // Add debounced event listener with error handling
         document.getElementById('expenseInput').addEventListener('input', function() {
             try {
@@ -1655,6 +1741,11 @@ Cristy
             } catch (error) {
                 ErrorHandler.logWarning('Input handler error', error);
             }
+        });
+
+        // Add blur event listener to format text when focus is lost
+        document.getElementById('expenseInput').addEventListener('blur', function() {
+            applyFormattedTextToTextarea();
         });
 
         // Initial calculation with error handling
@@ -1677,7 +1768,7 @@ Cristy
                     autoExpandTextarea(textarea);
 
                     // Clear results
-                    document.getElementById('results').innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.NO_DATA_ADD_EXPENSES}</div>`;
+                    document.getElementById('results').innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.NO_DATA_ADD_EXPENSES);
 
                     // Hide buttons
                     setButtonVisibility(false);
@@ -1715,10 +1806,7 @@ Cristy
                         currentPeopleData = people;
                         currentSharedExpenses = sharedExpenses;
 
-                        const formattedText = formatInputText();
-                        if (formattedText) {
-                            textarea.value = formattedText;
-                        }
+                        applyFormattedTextToTextarea(false); // Don't save to storage during load
                     }
 
                     // Auto-expand after loading content
@@ -1789,6 +1877,11 @@ Cristy
             }
         });
 
+        // Add event listeners for action buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('copyButton').addEventListener('click', copyToClipboard);
+            document.getElementById('resetButton').addEventListener('click', resetData);
+        });
     </script>
 </body>
 </html>
