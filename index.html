@@ -249,6 +249,34 @@
             cursor: default;
         }
 
+        .validation-warning {
+            background: var(--bg-error, #fee);
+            color: var(--text-error, #c53030);
+            border: 1px solid var(--border-error, #fc8181);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .validation-warning h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .validation-warning .warning-line {
+            background: var(--bg-code, #f7f7f7);
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 4px 0;
+            font-family: monospace;
+            border-left: 3px solid var(--border-error, #fc8181);
+        }
+
+
+
         @media (max-width: 768px) {
             .settle-text {
                 display: none;
@@ -263,13 +291,17 @@ David
 18,11 Pedágio (por padrão dividido entre todos)
 1.200,00 Hotel (pode usar ponto ou vírgula)
 
-Ana
+Ana 2 (grupo de duas pessoas, terá parte maior na divisão)
 45 Restaurante (não precisa colocar centavos)
 23 Lanche - David, Ana (dividido entre David e Ana)
 
 Cristy
 50 (descrição opcional)
 125,75 Compras - C,A (pode usar somente iniciais)"></textarea>
+
+    <div id="validationWarning" class="validation-warning" style="display: none;">
+        <div id="validationContent"></div>
+    </div>
 
     <div class="results" id="results">
         <div class="no-data">
@@ -305,21 +337,34 @@ Cristy
         let currentSettlements = [];
         let currentSharedExpenses = [];
 
-        function findPersonByNameOrInitial(nameOrInitial, allNames) {
-            // First try exact match
+        function findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
+            // First try exact match with original names
             if (allNames.includes(nameOrInitial)) {
                 return nameOrInitial;
             }
 
-            // Then try partial match from the beginning
-            const matches = allNames.filter(name =>
+            // Then try partial match from the beginning with original names
+            let matches = allNames.filter(name =>
                 name.toLowerCase().startsWith(nameOrInitial.toLowerCase().trim())
             );
+
+            if (matches.length === 1) {
+                return matches[0];
+            }
+
+            // Try matching against display names
+            matches = allNames.filter(name => {
+                const personInfo = personData[name];
+                if (personInfo) {
+                    return personInfo.displayName.toLowerCase().startsWith(nameOrInitial.toLowerCase().trim());
+                }
+                return false;
+            });
 
             return matches.length === 1 ? matches[0] : null;
         }
 
-        function parseSharedExpense(expenseLine, allNames) {
+        function parseSharedExpense(expenseLine, allNames, personData) {
             // Look for pattern: amount description - person1, person2, person3
             const sharedMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
 
@@ -333,7 +378,7 @@ Cristy
                 const resolvedPeople = [];
 
                 for (const personRef of peopleNames) {
-                    const resolvedPerson = findPersonByNameOrInitial(personRef, allNames);
+                    const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
                     if (resolvedPerson) {
                         resolvedPeople.push(resolvedPerson);
                     }
@@ -551,6 +596,91 @@ Cristy
             return div.innerHTML;
         }
 
+        function validateExpenses(text) {
+            const lines = text.split('\n').map(line => line.trim());
+            const warnings = [];
+            const people = [];
+            const personData = {};
+
+            // First pass: collect all person names
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line === '') continue;
+
+                const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+                if (!expenseMatch && line.length > 0) {
+                    people.push(line);
+
+                    // Parse person info for display name
+                    const numberMatch = line.match(/(\d+)/);
+                    let displayName = line;
+                    if (numberMatch) {
+                        displayName = line
+                            .replace(/\s*\(\s*\d+\s*\)\s*/g, ' ')
+                            .replace(/\s*-\s*\d+\s*/g, ' ')
+                            .replace(/\s+\d+\s*$/g, '')
+                            .replace(/^\s*\d+\s+/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    }
+                    if (!displayName) {
+                        displayName = line.replace(/\d+/g, '').trim() || line;
+                    }
+
+                    personData[line] = { displayName, originalName: line };
+                }
+            }
+
+            // Second pass: check for ambiguous references in shared expenses
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line === '') continue;
+
+                const sharedMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
+                if (sharedMatch) {
+                    const peopleStr = sharedMatch[3].trim();
+                    const peopleRefs = peopleStr.split(',').map(p => p.trim());
+
+                    for (const personRef of peopleRefs) {
+                        // Skip empty references (e.g., from trailing commas like "D,")
+                        if (personRef.trim() === '') {
+                            continue;
+                        }
+
+                        // Find potential matches
+                        const exactMatches = people.filter(name => name === personRef);
+                        const partialMatches = people.filter(name =>
+                            name.toLowerCase().startsWith(personRef.toLowerCase())
+                        );
+                        const displayMatches = people.filter(name => {
+                            const info = personData[name];
+                            return info && info.displayName.toLowerCase().startsWith(personRef.toLowerCase());
+                        });
+
+                        // Check for ambiguity
+                        const allMatches = [...new Set([...exactMatches, ...partialMatches, ...displayMatches])];
+
+                        if (allMatches.length > 1) {
+                            const matchingNames = allMatches.map(name => personData[name].displayName).join(', ');
+                            warnings.push({
+                                line: i + 1,
+                                text: line,
+                                error: `"${personRef}" é ambíguo - pode se referir a: ${matchingNames}`
+                            });
+                        } else if (allMatches.length === 0) {
+                            warnings.push({
+                                line: i + 1,
+                                text: line,
+                                error: `"${personRef}" não corresponde a nenhuma pessoa listada`
+                            });
+                        }
+                    }
+                }
+            }
+
+            return warnings;
+        }
+
         function parseExpenses(text) {
             try {
                 const lines = text.split('\n').map(line => line.trim());
@@ -558,14 +688,48 @@ Cristy
                 const sharedExpenses = [];
                 let currentPerson = null;
 
-                // First pass: collect all person names
+                // Helper function to extract name and parts from a person string
+                function parsePersonName(personString) {
+                    // Look for numbers in the string (e.g., "David 3", "David (3)", "David-3", etc.)
+                    const numberMatch = personString.match(/(\d+)/);
+                    const parts = numberMatch ? parseInt(numberMatch[1]) : 1;
+
+                    // Remove the number and any surrounding punctuation/spaces for display name
+                    let displayName = personString;
+                    if (numberMatch) {
+                        // Remove the matched number and surrounding characters more carefully
+                        displayName = personString
+                            .replace(/\s*\(\s*\d+\s*\)\s*/g, ' ')  // Replace (3) with space
+                            .replace(/\s*-\s*\d+\s*/g, ' ')        // Replace -3 with space
+                            .replace(/\s+\d+\s*$/g, '')           // Remove trailing number
+                            .replace(/^\s*\d+\s+/g, '')           // Remove leading number
+                            .replace(/\s+/g, ' ')                 // Normalize multiple spaces
+                            .trim();
+                    }
+
+                    // Fallback to original string if displayName is empty
+                    if (!displayName) {
+                        displayName = personString.replace(/\d+/g, '').trim() || personString;
+                    }
+
+                    return {
+                        displayName: displayName,
+                        parts: parts,
+                        originalName: personString
+                    };
+                }
+
+                // First pass: collect all person names with their parts
                 const allNames = [];
+                const personData = {};
                 for (const line of lines) {
                     if (line === '') continue;
 
                     const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
                     if (!expenseMatch && line.length > 0) {
+                        const personInfo = parsePersonName(line);
                         allNames.push(line);
+                        personData[line] = personInfo;
                     }
                 }
 
@@ -574,8 +738,11 @@ Cristy
                     people[name] = {
                         expenses: [],
                         total: 0,
-                        sharedExpenses: []
+                        sharedExpenses: [],
+                        displayName: personData[name].displayName,
+                        parts: personData[name].parts
                     };
+
                 });
 
                 // Second pass: process expenses
@@ -590,7 +757,7 @@ Cristy
 
                     if (expenseMatch && currentPerson) {
                         // Parse shared expense or default to all people
-                        const sharedExpense = parseSharedExpense(line, allNames);
+                        const sharedExpense = parseSharedExpense(line, allNames, personData);
                         const amount = parseNumber(expenseMatch[1]);
                         const description = line.substring(expenseMatch[0].length).trim();
 
@@ -653,71 +820,59 @@ Cristy
             }
         }
 
-        function calculateFairShares(names, sharedExpenses) {
+        function calculateFairShares(names, sharedExpenses, peopleData) {
             // Calculate total amounts each person owes across all shared expenses
-            // This function now uses an improved algorithm that pools all remainder cents
-            // and distributes them fairly among participants, rather than giving them
-            // to whoever paid the expense. This ensures more equitable cent distribution.
+            // Now uses parts/shares for proportional division instead of equal splits
             const totalOwed = {};
             names.forEach(name => {
                 totalOwed[name] = 0;
             });
 
-            // First pass: calculate base amounts and collect all remainders
-            let totalRemainderCents = 0;
-            const expenseDetails = [];
-
             sharedExpenses.forEach(expense => {
                 const { amount, sharedWith } = expense;
                 const amountCents = Math.round(amount * 100);
-                const baseAmountCents = Math.floor(amountCents / sharedWith.length);
-                const remainder = amountCents - (baseAmountCents * sharedWith.length);
 
-                // Add base amount for each person in the shared group
+                // Calculate total parts for this expense
+                const totalParts = sharedWith.reduce((sum, person) => {
+                    const parts = peopleData[person] ? peopleData[person].parts : 1;
+                    return sum + parts;
+                }, 0);
+
+
+
+                // Distribute the expense based on parts
+                let distributedCents = 0;
+                const distributions = [];
+
                 sharedWith.forEach(person => {
-                    totalOwed[person] += baseAmountCents;
+                    const parts = peopleData[person] ? peopleData[person].parts : 1;
+                    const personShareCents = Math.round((amountCents * parts) / totalParts);
+
+                    distributions.push({ person, amount: personShareCents });
+                    distributedCents += personShareCents;
                 });
 
-                // Collect remainder for later distribution
-                totalRemainderCents += remainder;
-                expenseDetails.push({
-                    expense,
-                    remainder,
-                    sharedWith
+                // Handle any rounding difference
+                const difference = amountCents - distributedCents;
+                if (difference !== 0) {
+                    // Add the difference to the person with the highest parts (most fair)
+                    const maxPartsParticipant = sharedWith.reduce((max, person) => {
+                        const parts = peopleData[person] ? peopleData[person].parts : 1;
+                        const maxParts = peopleData[max] ? peopleData[max].parts : 1;
+                        return parts > maxParts ? person : max;
+                    });
+
+                    const adjustmentIndex = distributions.findIndex(d => d.person === maxPartsParticipant);
+                    if (adjustmentIndex !== -1) {
+                        distributions[adjustmentIndex].amount += difference;
+                    }
+                }
+
+                // Apply the distributions
+                distributions.forEach(({ person, amount }) => {
+                    totalOwed[person] += amount;
                 });
             });
-
-            // Second pass: distribute all remainder cents fairly
-            // Instead of giving remainder cents to the payer, we pool all remainders
-            // and distribute them based on participation frequency
-            if (totalRemainderCents > 0) {
-                // Create a list of all participants who should receive remainder cents
-                const participantCounts = {};
-                names.forEach(name => {
-                    participantCounts[name] = 0;
-                });
-
-                // Count how many times each person appears in shared expenses
-                expenseDetails.forEach(detail => {
-                    detail.sharedWith.forEach(person => {
-                        participantCounts[person]++;
-                    });
-                });
-
-                // Sort people by their participation count (more participation = higher priority for remainder)
-                const sortedParticipants = names
-                    .filter(name => participantCounts[name] > 0)
-                    .sort((a, b) => participantCounts[b] - participantCounts[a]);
-
-                // Distribute remainder cents using round-robin among participants
-                let remainderIndex = 0;
-                while (totalRemainderCents > 0 && sortedParticipants.length > 0) {
-                    const recipient = sortedParticipants[remainderIndex % sortedParticipants.length];
-                    totalOwed[recipient] += 1;
-                    totalRemainderCents--;
-                    remainderIndex++;
-                }
-            }
 
             // Convert cents to dollars for final fair shares
             const fairShares = {};
@@ -733,7 +888,7 @@ Cristy
                 const names = Object.keys(people);
                 if (names.length === 0) return [];
 
-                const fairShares = calculateFairShares(names, sharedExpenses);
+                const fairShares = calculateFairShares(names, sharedExpenses, people);
 
                 // Convert back to dollars and calculate balances
                 const balances = {};
@@ -802,7 +957,7 @@ Cristy
                 }, 0);
 
                 // Calculate fair shares using the helper function
-                const fairShares = calculateFairShares(names, currentSharedExpenses);
+                const fairShares = calculateFairShares(names, currentSharedExpenses, currentPeopleData);
 
                 let text = '';
 
@@ -821,8 +976,11 @@ Cristy
                 // Add parsed expenses by person
                 text += '*GASTOS*\n';
                 names.forEach(name => {
-                    text += `${name}\n`;
                     const person = currentPeopleData[name];
+                    const displayName = person ? person.displayName : name;
+                    const parts = person ? person.parts : 1;
+                    const partsText = parts > 1 ? ` (${parts})` : '';
+                    text += `${displayName}${partsText}\n`;
                     if (person && person.expenses.length > 0) {
                         person.expenses.forEach(expense => {
                             const formattedAmount = formatNumber(expense.amount);
@@ -830,19 +988,24 @@ Cristy
                             const description = expense.description ? ` ${expense.description}` : '';
                             text += ` ${paddedAmount}${description}\n`;
                         });
+                        text += '\n';
                     }
-                    text += '\n';
+
                 });
 
                 // Add summary
-                text += '*DIVISÃO*\n';
+                text += '\n*DIVISÃO*\n';
                 names.forEach(name => {
                     const personTotal = currentPeopleData[name] ? currentPeopleData[name].total || 0 : 0;
                     const personShare = fairShares[name] || 0;
-                    text += `${name} pagou ${formatNumber(personTotal)} de ${formatNumber(personShare)}\n`;
+                    const person = currentPeopleData[name];
+                    const displayName = person ? person.displayName : name;
+                    const parts = person ? person.parts : 1;
+                    const partsText = parts > 1 ? ` (${parts})` : '';
+                    text += `${displayName}${partsText} = ${formatNumber(personShare)}\n`;
                 });
 
-                text += `\nTotal = ${formatNumber(totalExpenses)}\n`;
+                text += `Total = ${formatNumber(totalExpenses)}\n`;
 
                 // Add settlements
                 text += '\n*ACERTOS*\n';
@@ -852,7 +1015,11 @@ Cristy
                     text += 'Todos estão quites!\n';
                 } else {
                     currentSettlements.forEach(settlement => {
-                        text += `${settlement.from} deve ${formatNumber(settlement.amount)} para ${settlement.to}\n`;
+                        const fromPerson = currentPeopleData[settlement.from];
+                        const toPerson = currentPeopleData[settlement.to];
+                        const fromName = fromPerson ? fromPerson.displayName : settlement.from;
+                        const toName = toPerson ? toPerson.displayName : settlement.to;
+                        text += `${fromName} deve ${formatNumber(settlement.amount)} para ${toName}\n`;
                     });
                 }
 
@@ -927,14 +1094,53 @@ Cristy
             }, 2000);
         }
 
+        function displayValidationWarnings(warnings) {
+            const warningDiv = document.getElementById('validationWarning');
+            const contentDiv = document.getElementById('validationContent');
+
+            if (warnings.length === 0) {
+                warningDiv.style.display = 'none';
+                return;
+            }
+
+            let content = '';
+            warnings.forEach(warning => {
+                content += `
+                    <div>
+                        ${warning.error}
+                    </div>
+                `;
+            });
+
+            contentDiv.innerHTML = content;
+            warningDiv.style.display = 'block';
+        }
+
         function updateResults() {
             try {
                 const input = document.getElementById('expenseInput').value;
                 const resultsDiv = document.getElementById('results');
                 const copyButton = document.getElementById('copyButton');
 
+                // Validate input and show warnings
+                const warnings = validateExpenses(input);
+
                 if (!input.trim()) {
                     resultsDiv.innerHTML = '<div class="no-data">Adicione despesas acima para ver a divisão e acertos</div>';
+                    copyButton.style.display = 'none';
+                    displayValidationWarnings([]);
+                    currentPeopleData = {};
+                    currentSettlements = [];
+                    currentSharedExpenses = [];
+                    return;
+                }
+
+                // Display validation warnings
+                displayValidationWarnings(warnings);
+
+                // If there are critical validation errors, don't proceed with parsing
+                if (warnings.length > 0) {
+                    resultsDiv.innerHTML = '<div class="no-data">Verifique os erros acima antes de continuar</div>';
                     copyButton.style.display = 'none';
                     currentPeopleData = {};
                     currentSettlements = [];
@@ -964,7 +1170,7 @@ Cristy
                 }, 0);
 
                 // Calculate fair share amounts using the helper function
-                const fairShares = calculateFairShares(names, sharedExpenses);
+                const fairShares = calculateFairShares(names, sharedExpenses, people);
 
                 let html = '<div class="summary">';
 
@@ -972,12 +1178,12 @@ Cristy
                 names.forEach(name => {
                     const personTotal = people[name] ? people[name].total || 0 : 0;
                     const fairShare = fairShares[name] || 0;
+                    const displayName = people[name] ? people[name].displayName : name;
+                    const parts = people[name] ? people[name].parts : 1;
+                    const partsText = parts > 1 ? ` (${parts})` : '';
                     html += `
                         <div class="person-summary">
-                            <span class="person-name">
-                              ${escapeHtml(name)}
-                              <span class="person-paid">pagou ${formatNumber(personTotal)}</span>
-                            </span>
+                            <span class="person-name">${escapeHtml(displayName)}${partsText}</span>
                             <span class="person-total">${formatNumber(fairShare)}</span>
                         </div>
                     `;
@@ -1000,10 +1206,14 @@ Cristy
                     html += '<div class="no-data">Tudo está acertado!</div>';
                 } else {
                     currentSettlements.forEach((settlement, index) => {
+                        const fromPerson = people[settlement.from];
+                        const toPerson = people[settlement.to];
+                        const fromName = fromPerson ? fromPerson.displayName : settlement.from;
+                        const toName = toPerson ? toPerson.displayName : settlement.to;
                         html += `
                             <div class="settlement-item">
-                                <span class="settlement-text">${escapeHtml(settlement.from)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(settlement.to)}</span>
-                                <button class="button-base settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
+                                <span class="settlement-text">${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}</span>
+                                <button class="settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
                             </div>
                         `;
                     });
