@@ -1165,9 +1165,28 @@ Cristy
             // Reset height to measure the scroll height accurately
             textarea.style.height = 'auto';
 
+            // Detect if we're on mobile based on screen width and touch capability
+            const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
+
+            // Calculate available viewport height considering mobile keyboard space
+            let availableHeight;
+            if (isMobile) {
+                // On mobile, use visual viewport if available (accounts for keyboard)
+                // Otherwise fall back to a conservative estimate
+                if (window.visualViewport) {
+                    availableHeight = window.visualViewport.height;
+                } else {
+                    // Conservative fallback - assume keyboard takes up significant space
+                    availableHeight = window.innerHeight * 0.6; // Assume keyboard uses ~40% of screen
+                }
+            } else {
+                availableHeight = window.innerHeight;
+            }
+
             // Calculate new height, ensuring it stays within min/max bounds
             const minHeight = 300; // matches min-height in CSS
-            const maxHeight = Math.floor(window.innerHeight * 0.6); // matches max-height: 60vh
+            const maxHeightRatio = isMobile ? 0.4 : 0.6; // 40vh on mobile, 60vh on desktop
+            const maxHeight = Math.floor(availableHeight * maxHeightRatio);
             const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
 
             textarea.style.height = newHeight + 'px';
