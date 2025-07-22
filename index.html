@@ -433,6 +433,142 @@ Cristy
         let previousPeopleNames = [];
         let previousSettlementKeys = [];
 
+        // Utility function to reset global state variables
+        function resetGlobalState() {
+            currentPeopleData = {};
+            currentSettlements = [];
+            currentSharedExpenses = [];
+            previousResultsHTML = '';
+            previousPeopleCount = 0;
+            previousSettlementCount = 0;
+            previousPeopleNames = [];
+            previousSettlementKeys = [];
+        }
+
+        // Constants for configuration and magic values
+        const CONSTANTS = {
+            // Timing values (in milliseconds)
+            DEBOUNCE_TIMEOUT: 300,
+            COPY_SUCCESS_TIMEOUT: 2000,
+            SETTLEMENT_SUCCESS_TIMEOUT: 800,
+            SLIDE_OUT_TIMEOUT: 200,
+
+            // Animation delays (in milliseconds)
+            PERSON_ANIMATION_DELAY: 50,
+            SETTLEMENT_ANIMATION_DELAY: 75,
+            TOTAL_ROW_EXTRA_DELAY: 100,
+
+            // CSS classes
+            CSS_CLASSES: {
+                SLIDE_IN: 'slide-in',
+                SLIDE_OUT: 'slide-out',
+                COPIED: 'copied',
+                SETTLEMENT_SUCCESS: 'settlement-success'
+            },
+
+            // Messages
+            MESSAGES: {
+                NO_DATA_INITIAL: 'Adicione despesas acima para calcular a divisão e os acertos',
+                NO_DATA_ADD_EXPENSES: 'Adicione despesas acima para ver a divisão e acertos',
+                NO_NAMES_FOUND: 'Nenhum nome válido encontrado',
+                CHECK_ERRORS: 'Verifique os erros acima antes de continuar',
+                NO_EXPENSES_TO_SETTLE: 'Nenhuma despesa para acertar',
+                ALL_SETTLED: 'Tudo está acertado!',
+                PROCESSING_ERROR: 'Erro ao processar os dados. Verifique o formato.',
+                SETTLED_TEXT: 'ACERTADO',
+                COPY_SUCCESS: 'COPIADO ✓',
+                NOTHING_TO_COPY: 'Nada para copiar. Adicione alguns gastos primeiro.',
+                COPY_ERROR: 'Erro ao copiar. Tente novamente.',
+                RESET_CONFIRM: 'Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.',
+                RESET_ERROR: 'Erro ao limpar os dados. Tente novamente.'
+            },
+
+            // LocalStorage
+            STORAGE_KEY: 'expenseInputData',
+
+            // Number formatting
+            DECIMAL_PLACES: 2,
+            DEFAULT_LOCALE: 'pt-BR',
+            DEFAULT_CURRENCY: 'BRL'
+        };
+
+        // Centralized error handling utility
+        const ErrorHandler = {
+            // Handle UI errors with user-friendly messages
+            handleUIError(error, userMessage, showAlert = true) {
+                console.error('UI Error:', error);
+                if (showAlert) {
+                    alert(userMessage);
+                }
+                // Reset UI state on critical errors
+                setButtonVisibility(false);
+                resetGlobalState();
+            },
+
+            // Handle processing errors with fallback UI
+            handleProcessingError(error, fallbackHTML = null) {
+                console.error('Processing Error:', error);
+                const resultsDiv = document.getElementById('results');
+                resultsDiv.innerHTML = fallbackHTML || `<div class="no-data">${CONSTANTS.MESSAGES.PROCESSING_ERROR}</div>`;
+                setButtonVisibility(false);
+                resetGlobalState();
+            },
+
+            // Handle validation errors
+            handleValidationError(error, warnings = []) {
+                console.error('Validation Error:', error);
+                displayValidationWarnings(warnings);
+                setButtonVisibility(false);
+            },
+
+            // Log warnings without stopping execution
+            logWarning(message, data = null) {
+                console.warn('Warning:', message, data);
+            }
+        };
+
+        // Utility function to manage button visibility
+        function setButtonVisibility(show) {
+            const copyButton = document.getElementById('copyButton');
+            const resetButton = document.getElementById('resetButton');
+            const display = show ? 'block' : 'none';
+
+            copyButton.style.display = display;
+            resetButton.style.display = display;
+        }
+
+        // Utility function to generate person summary HTML
+        function generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay) {
+            const partsText = parts > 1 ? ` (${parts})` : '';
+            const animationClass = shouldAnimate ? 'slide-in' : '';
+            const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+
+            return `
+                <div class="person-summary ${animationClass}" ${animationStyle}>
+                    <span class="person-name">${escapeHtml(displayName)}${partsText}</span>
+                    <span class="person-total">${formatNumber(fairShare)}</span>
+                </div>
+            `;
+        }
+
+        // Utility function to generate settlement HTML
+        function generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people) {
+            const fromPerson = people[settlement.from];
+            const toPerson = people[settlement.to];
+            const fromName = fromPerson ? fromPerson.displayName : settlement.from;
+            const toName = toPerson ? toPerson.displayName : settlement.to;
+
+            const animationClass = shouldAnimate ? 'slide-in' : '';
+            const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+
+            return `
+                <div class="settlement-wrapper ${animationClass}" data-settlement-index="${index}" ${animationStyle}>
+                    <span class="settlement-text">${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}</span>
+                    <button class="settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
+                </div>
+            `;
+        }
+
         function findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
             // First try exact match with original names
             if (allNames.includes(nameOrInitial)) {
@@ -494,138 +630,82 @@ Cristy
 
         function parseNumber(numStr) {
             try {
-                // Remove any leading/trailing whitespace
                 numStr = numStr.trim();
 
-                // If it's a simple integer with no separators
+                // Handle simple integers
                 if (/^\d+$/.test(numStr)) {
                     return parseFloat(numStr);
                 }
 
-                // Count dots and commas to determine format
-                const dotCount = (numStr.match(/\./g) || []).length;
-                const commaCount = (numStr.match(/,/g) || []).length;
-
-                // If no separators at all, just parse as is
-                if (dotCount === 0 && commaCount === 0) {
-                    return parseFloat(numStr);
-                }
-
-                // Patterns for different formats
-                const patterns = {
-                    // European format: 1.234.567,89 or 1.234,89 or 123,89
-                    european: /^\d{1,3}(?:\.\d{3})*,\d{1,2}$/,
-                    // US format: 1,234,567.89 or 1,234.89 or 123.89
-                    us: /^\d{1,3}(?:,\d{3})*\.\d{1,2}$/,
-                    // Simple decimal with dot: 123.45
-                    simpleDot: /^\d+\.\d{1,2}$/,
-                    // Simple decimal with comma: 123,45
-                    simpleComma: /^\d+,\d{1,2}$/,
-                    // Thousands only with dots: 1.234 or 12.345
-                    thousandsDot: /^\d{1,3}(?:\.\d{3})+$/,
-                    // Thousands only with commas: 1,234 or 12,345
-                    thousandsComma: /^\d{1,3}(?:,\d{3})+$/
-                };
-
-                // European format (1.234.567,89)
-                if (patterns.european.test(numStr)) {
-                    return parseFloat(numStr.replace(/\./g, '').replace(',', '.'));
-                }
-
-                // US format (1,234,567.89)
-                if (patterns.us.test(numStr)) {
-                    return parseFloat(numStr.replace(/,/g, ''));
-                }
-
-                // Simple decimal with dot (123.45)
-                if (patterns.simpleDot.test(numStr)) {
-                    return parseFloat(numStr);
-                }
-
-                // Simple decimal with comma (123,45)
-                if (patterns.simpleComma.test(numStr)) {
-                    return parseFloat(numStr.replace(',', '.'));
-                }
-
-                // Thousands only with dots (1.234) - assume European style
-                if (patterns.thousandsDot.test(numStr)) {
-                    return parseFloat(numStr.replace(/\./g, ''));
-                }
-
-                // Thousands only with commas (1,234) - assume US style
-                if (patterns.thousandsComma.test(numStr)) {
-                    return parseFloat(numStr.replace(/,/g, ''));
-                }
-
-                // Handle ambiguous cases based on position and context
-                if (dotCount === 1 && commaCount === 0) {
-                    // Could be decimal (12.50) or thousands (1.200)
-                    const parts = numStr.split('.');
-                    if (parts[1].length <= 2) {
-                        // Likely decimal (12.50)
-                        return parseFloat(numStr);
-                    } else {
-                        // Likely thousands (1.200)
-                        return parseFloat(parts[0] + parts[1]);
-                    }
-                }
-
-                if (commaCount === 1 && dotCount === 0) {
-                    // Could be decimal (12,50) or thousands (1,200)
-                    const parts = numStr.split(',');
-                    if (parts[1].length <= 2) {
-                        // Likely decimal (12,50)
-                        return parseFloat(numStr.replace(',', '.'));
-                    } else {
-                        // Likely thousands (1,200)
-                        return parseFloat(parts[0] + parts[1]);
-                    }
-                }
-
-                // Mixed format detection - look at the last separator
-                const lastDot = numStr.lastIndexOf('.');
-                const lastComma = numStr.lastIndexOf(',');
-
-                if (lastDot > lastComma) {
-                    // Last separator is dot, assume US format
-                    const beforeDot = numStr.substring(0, lastDot);
-                    const afterDot = numStr.substring(lastDot + 1);
-
-                    // If after dot is 1-2 digits, it's likely decimal
-                    if (afterDot.length <= 2 && /^\d+$/.test(afterDot)) {
-                        const cleanBefore = beforeDot.replace(/,/g, '');
-                        return parseFloat(cleanBefore + '.' + afterDot);
-                    }
-                }
-
-                if (lastComma > lastDot) {
-                    // Last separator is comma, assume European format
-                    const beforeComma = numStr.substring(0, lastComma);
-                    const afterComma = numStr.substring(lastComma + 1);
-
-                    // If after comma is 1-2 digits, it's likely decimal
-                    if (afterComma.length <= 2 && /^\d+$/.test(afterComma)) {
-                        const cleanBefore = beforeComma.replace(/\./g, '');
-                        return parseFloat(cleanBefore + '.' + afterComma);
-                    }
-                }
-
-                // Fallback: try to clean and parse
+                // Remove any non-digit, non-comma, non-dot characters
                 const cleaned = numStr.replace(/[^\d.,]/g, '');
-                if (cleaned.includes('.') && cleaned.includes(',')) {
-                    // Both separators present, use heuristic
-                    if (lastDot > lastComma) {
-                        return parseFloat(cleaned.replace(/,/g, ''));
-                    } else {
-                        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-                    }
-                } else if (cleaned.includes('.')) {
-                    return parseFloat(cleaned.replace(',', '.'));
-                } else if (cleaned.includes(',')) {
-                    return parseFloat(cleaned.replace(',', '.'));
-                } else {
+                if (!cleaned) return NaN;
+
+                const lastDot = cleaned.lastIndexOf('.');
+                const lastComma = cleaned.lastIndexOf(',');
+
+                // No separators
+                if (lastDot === -1 && lastComma === -1) {
                     return parseFloat(cleaned);
                 }
+
+                // Only dots or only commas
+                if (lastComma === -1) {
+                    // Only dots: could be US format (1,234.56) or thousands (1.234)
+                    const parts = cleaned.split('.');
+                    const lastPart = parts[parts.length - 1];
+                    if (lastPart.length <= 2 && parts.length >= 2) {
+                        // Likely decimal: 123.45 or 1,234.56
+                        return parseFloat(cleaned);
+                    } else {
+                        // Likely thousands: 1.234 -> 1234
+                        return parseFloat(cleaned.replace(/\./g, ''));
+                    }
+                }
+
+                if (lastDot === -1) {
+                    // Only commas: could be European format (1.234,56) or thousands (1,234)
+                    const parts = cleaned.split(',');
+                    const lastPart = parts[parts.length - 1];
+                    if (lastPart.length <= 2 && parts.length >= 2) {
+                        // Likely decimal: 123,45 or 1.234,56
+                        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                    } else {
+                        // Likely thousands: 1,234 -> 1234
+                        return parseFloat(cleaned.replace(/,/g, ''));
+                    }
+                }
+
+                // Both separators present
+                if (lastDot > lastComma) {
+                    // Dot comes last: assume US format (1,234.56)
+                    const afterDot = cleaned.substring(lastDot + 1);
+                    if (afterDot.length <= 2) {
+                        return parseFloat(cleaned.replace(/,/g, ''));
+                    }
+                } else {
+                    // Comma comes last: assume European format (1.234,56)
+                    const afterComma = cleaned.substring(lastComma + 1);
+                    if (afterComma.length <= 2) {
+                        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                    }
+                }
+
+                // Fallback: remove all separators except the last one
+                const allSeparators = [...cleaned.matchAll(/[.,]/g)];
+                if (allSeparators.length > 0) {
+                    const lastSeparator = allSeparators[allSeparators.length - 1];
+                    const beforeLast = cleaned.substring(0, lastSeparator.index);
+                    const afterLast = cleaned.substring(lastSeparator.index + 1);
+
+                    if (afterLast.length <= 2) {
+                        // Treat as decimal
+                        const cleanBefore = beforeLast.replace(/[.,]/g, '');
+                        return parseFloat(cleanBefore + '.' + afterLast);
+                    }
+                }
+
+                return parseFloat(cleaned.replace(/[.,]/g, ''));
 
             } catch (error) {
                 console.error('Error parsing number:', numStr, error);
@@ -636,27 +716,27 @@ Cristy
         function formatNumber(amount) {
             try {
                 // Use browser's locale for number formatting
-                const locale = navigator.language || 'pt-BR';
+                const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
                 return amount.toLocaleString(locale, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
+                    minimumFractionDigits: CONSTANTS.DECIMAL_PLACES,
+                    maximumFractionDigits: CONSTANTS.DECIMAL_PLACES
                 });
             } catch (error) {
                 console.error('Error formatting number:', error);
                 // Fallback to fixed decimal if locale formatting fails
-                return amount.toFixed(2);
+                return amount.toFixed(CONSTANTS.DECIMAL_PLACES);
             }
         }
 
         function formatCurrency(amount) {
             try {
                 // Format as currency using browser's locale
-                const locale = navigator.language || 'pt-BR';
+                const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
                 return amount.toLocaleString(locale, {
                     style: 'currency',
                     currency: getCurrencyCode(locale),
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
+                    minimumFractionDigits: CONSTANTS.DECIMAL_PLACES,
+                    maximumFractionDigits: CONSTANTS.DECIMAL_PLACES
                 });
             } catch (error) {
                 console.error('Error formatting currency:', error);
@@ -678,7 +758,7 @@ Cristy
                 'it-IT': 'EUR'
             };
 
-            return currencyMap[locale] || currencyMap[locale.split('-')[0]] || 'USD';
+            return currencyMap[locale] || currencyMap[locale.split('-')[0]] || CONSTANTS.DEFAULT_CURRENCY;
         }
 
         // Safely escape HTML characters in user input to prevent HTML injection
@@ -1139,7 +1219,7 @@ Cristy
                     const width = formatNumber(sharedExpense.amount).length;
                     if (width > maxWidth) maxWidth = width;
                 });
-                
+
                 // Ensure minimum width for proper alignment
                 if (maxWidth === 0) maxWidth = 8;
 
@@ -1150,25 +1230,25 @@ Cristy
                     const parts = person ? person.parts : 1;
                     const partsText = parts > 1 ? ` (${parts})` : '';
                     formattedText += `${displayName}${partsText}\n`;
-                    
+
                     if (person && person.expenses.length > 0) {
                         // Use shared expenses to reconstruct the original format
                         const processedExpenses = new Set();
-                        
+
                         currentSharedExpenses.forEach(sharedExpense => {
                             if (sharedExpense.paidBy === name && !processedExpenses.has(sharedExpense)) {
                                 processedExpenses.add(sharedExpense);
-                                
+
                                 const formattedAmount = formatNumber(sharedExpense.amount);
                                 const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
-                                
+
                                 let description = sharedExpense.description || '';
-                                
+
                                 // Check if this expense is shared with specific people (not all)
                                 const allNames = Object.keys(currentPeopleData);
-                                const isSharedWithAll = sharedExpense.sharedWith.length === allNames.length && 
+                                const isSharedWithAll = sharedExpense.sharedWith.length === allNames.length &&
                                                        sharedExpense.sharedWith.every(p => allNames.includes(p));
-                                
+
                                 // Always add participant names unless shared with all people
                                 if (!isSharedWithAll && sharedExpense.sharedWith.length > 0) {
                                     // Add shared participants to description
@@ -1178,12 +1258,12 @@ Cristy
                                     }).join(', ');
                                     description = description ? `${description} - ${participants}` : `- ${participants}`;
                                 }
-                                
+
                                 const fullDescription = description ? ` ${description}` : '';
                                 formattedText += ` ${paddedAmount}${fullDescription}\n`;
                             }
                         });
-                        
+
                         formattedText += '\n';
                     }
                 });
@@ -1200,7 +1280,7 @@ Cristy
                 const textSummary = generateTextSummary();
 
                 if (!textSummary) {
-                    alert('Nada para copiar. Adicione alguns gastos primeiro.');
+                    alert(CONSTANTS.MESSAGES.NOTHING_TO_COPY);
                     return;
                 }
 
@@ -1225,8 +1305,7 @@ Cristy
                     fallbackCopy(textSummary);
                 }
             } catch (error) {
-                console.error('Error copying to clipboard:', error);
-                alert('Erro ao copiar. Tente novamente.');
+                ErrorHandler.handleUIError(error, CONSTANTS.MESSAGES.COPY_ERROR);
             }
         }
 
@@ -1259,13 +1338,13 @@ Cristy
         function showCopySuccess() {
             const button = document.getElementById('copyButton');
             const originalText = button.textContent;
-            button.textContent = 'COPIADO ✓';
-            button.classList.add('copied');
+            button.textContent = CONSTANTS.MESSAGES.COPY_SUCCESS;
+            button.classList.add(CONSTANTS.CSS_CLASSES.COPIED);
 
             setTimeout(() => {
                 button.textContent = originalText;
-                button.classList.remove('copied');
-            }, 2000);
+                button.classList.remove(CONSTANTS.CSS_CLASSES.COPIED);
+            }, CONSTANTS.COPY_SUCCESS_TIMEOUT);
         }
 
         function displayValidationWarnings(warnings) {
@@ -1301,18 +1380,10 @@ Cristy
                 const warnings = validateExpenses(input);
 
                 if (!input.trim()) {
-                    resultsDiv.innerHTML = '<div class="no-data">Adicione despesas acima para calcular a divisão e os acertos</div>';
-                    copyButton.style.display = 'none';
-                    resetButton.style.display = 'none';
+                    resultsDiv.innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.NO_DATA_INITIAL}</div>`;
+                    setButtonVisibility(false);
                     displayValidationWarnings([]);
-                    currentPeopleData = {};
-                    currentSettlements = [];
-                    currentSharedExpenses = [];
-                    previousResultsHTML = '';
-                    previousPeopleCount = 0;
-                    previousSettlementCount = 0;
-                    previousPeopleNames = [];
-                    previousSettlementKeys = [];
+                    resetGlobalState();
                     return;
                 }
 
@@ -1321,17 +1392,9 @@ Cristy
 
                 // If there are critical validation errors, don't proceed with parsing
                 if (warnings.length > 0) {
-                    resultsDiv.innerHTML = '<div class="no-data">Verifique os erros acima antes de continuar</div>';
-                    copyButton.style.display = 'none';
-                    resetButton.style.display = 'none';
-                    currentPeopleData = {};
-                    currentSettlements = [];
-                    currentSharedExpenses = [];
-                    previousResultsHTML = '';
-                    previousPeopleCount = 0;
-                    previousSettlementCount = 0;
-                    previousPeopleNames = [];
-                    previousSettlementKeys = [];
+                    resultsDiv.innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.CHECK_ERRORS}</div>`;
+                    setButtonVisibility(false);
+                    resetGlobalState();
                     return;
                 }
 
@@ -1339,17 +1402,9 @@ Cristy
                 const names = Object.keys(people);
 
                 if (names.length === 0) {
-                    resultsDiv.innerHTML = '<div class="no-data">Nenhum nome válido encontrado</div>';
-                    copyButton.style.display = 'none';
-                    resetButton.style.display = 'none';
-                    currentPeopleData = {};
-                    currentSettlements = [];
-                    currentSharedExpenses = [];
-                    previousResultsHTML = '';
-                    previousPeopleCount = 0;
-                    previousSettlementCount = 0;
-                    previousPeopleNames = [];
-                    previousSettlementKeys = [];
+                    resultsDiv.innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.NO_NAMES_FOUND}</div>`;
+                    setButtonVisibility(false);
+                    resetGlobalState();
                     return;
                 }
 
@@ -1422,19 +1477,10 @@ Cristy
                         const fairShare = fairShares[name] || 0;
                         const displayName = people[name] ? people[name].displayName : name;
                         const parts = people[name] ? people[name].parts : 1;
-                        const partsText = parts > 1 ? ` (${parts})` : '';
 
                         const shouldAnimate = shouldAnimateNewItems && index >= previousPeopleCount - 1;
-                        const animationClass = shouldAnimate ? 'slide-in' : '';
-                        const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
-
-                        html += `
-                            <div class="person-summary ${animationClass}" ${animationStyle}>
-                                <span class="person-name">${escapeHtml(displayName)}${partsText}</span>
-                                <span class="person-total">${formatNumber(fairShare)}</span>
-                            </div>
-                        `;
-                        if (shouldAnimate) animationDelay += 50;
+                        html += generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay);
+                        if (shouldAnimate) animationDelay += CONSTANTS.PERSON_ANIMATION_DELAY;
                     });
 
                     // Total row - only animate on first load
@@ -1448,31 +1494,18 @@ Cristy
                             <span class="person-total">${formatNumber(totalExpenses)}</span>
                         </div>`;
 
-                    if (totalShouldAnimate) animationDelay += 100; // Extra delay before settlements
+                    if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY; // Extra delay before settlements
 
                     // Show settlements
                     if (totalExpenses === 0) {
-                        html += '<div class="no-data">Nenhuma despesa para acertar</div>';
+                        html += `<div class="no-data">${CONSTANTS.MESSAGES.NO_EXPENSES_TO_SETTLE}</div>`;
                     } else if (currentSettlements.length === 0) {
-                        html += '<div class="no-data">Tudo está acertado!</div>';
+                        html += `<div class="no-data">${CONSTANTS.MESSAGES.ALL_SETTLED}</div>`;
                     } else {
                         currentSettlements.forEach((settlement, index) => {
-                            const fromPerson = people[settlement.from];
-                            const toPerson = people[settlement.to];
-                            const fromName = fromPerson ? fromPerson.displayName : settlement.from;
-                            const toName = toPerson ? toPerson.displayName : settlement.to;
-
                             const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
-                            const animationClass = shouldAnimate ? 'slide-in' : '';
-                            const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
-
-                            html += `
-                                <div class="settlement-wrapper ${animationClass}" data-settlement-index="${index}" ${animationStyle}>
-                                    <span class="settlement-text">${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}</span>
-                                    <button class="settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
-                                </div>
-                            `;
-                            if (shouldAnimate) animationDelay += 75;
+                            html += generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people);
+                            if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
                         });
                     }
 
@@ -1485,23 +1518,12 @@ Cristy
                     previousPeopleNames = newPeopleNames.slice();
                     previousSettlementKeys = newSettlementKeys.slice();
 
-                    // Show copy button when there are results
-                    copyButton.style.display = 'block';
-                    // Show reset button when there are results
-                    resetButton.style.display = 'block';
+                    // Show buttons when there are results
+                    setButtonVisibility(true);
                 }
 
             } catch (error) {
-                console.error('Error updating results:', error);
-                document.getElementById('results').innerHTML = '<div class="no-data">Erro ao processar os dados. Verifique o formato.</div>';
-                document.getElementById('copyButton').style.display = 'none';
-                document.getElementById('resetButton').style.display = 'none';
-                currentPeopleData = {};
-                currentSettlements = [];
-                currentSharedExpenses = [];
-                previousResultsHTML = '';
-                previousPeopleCount = 0;
-                previousSettlementCount = 0;
+                ErrorHandler.handleProcessingError(error);
             }
         }
 
@@ -1564,14 +1586,14 @@ Cristy
 
                     // Reparse the expenses to update data structures with the new settlement
                     const { people, sharedExpenses } = parseExpenses(textarea.value);
-                    
+
                     if (people && sharedExpenses) {
                         currentPeopleData = people;
                         currentSharedExpenses = sharedExpenses;
-                        
+
                         // Now reformat the input text with updated data
                         const formattedText = formatInputText();
-                        
+
                         if (formattedText) {
                             textarea.value = formattedText;
                             // Auto-expand textarea after formatting
@@ -1585,12 +1607,12 @@ Cristy
                     // Show success state with green background
                     const settlementWrapper = document.querySelector(`[data-settlement-index="${settlementIndex}"]`);
                     if (settlementWrapper) {
-                        settlementWrapper.classList.add('settlement-success');
+                        settlementWrapper.classList.add(CONSTANTS.CSS_CLASSES.SETTLEMENT_SUCCESS);
 
                         // Replace the settlement text with "Acertado"
                         const settlementText = settlementWrapper.querySelector('.settlement-text');
                         if (settlementText) {
-                            settlementText.textContent = 'ACERTADO';
+                            settlementText.textContent = CONSTANTS.MESSAGES.SETTLED_TEXT;
                         }
 
                         // Hide the button to prevent multiple clicks
@@ -1601,18 +1623,17 @@ Cristy
 
                         // Animate the settlement removal
                         setTimeout(() => {
-                            settlementWrapper.classList.add('slide-out');
+                            settlementWrapper.classList.add(CONSTANTS.CSS_CLASSES.SLIDE_OUT);
 
                             // Remove the settlement after animation completes
                             setTimeout(() => {
                                 updateResults();
-                            }, 200);
-                        }, 800);
+                            }, CONSTANTS.SLIDE_OUT_TIMEOUT);
+                        }, CONSTANTS.SETTLEMENT_SUCCESS_TIMEOUT);
                     }
                 }
             } catch (error) {
-                console.error('Error settling payment:', error);
-                alert('Erro ao processar acerto. Tente novamente.');
+                ErrorHandler.handleUIError(error, 'Erro ao processar acerto. Tente novamente.');
             }
         }
 
@@ -1628,13 +1649,11 @@ Cristy
                         updateResults();
                         saveToLocalStorage(); // Save to localStorage after updating results
                     } catch (error) {
-                        console.error('Error in updateResults:', error);
-                        document.getElementById('results').innerHTML = '<div class="no-data">Erro ao processar os dados. Verifique o formato.</div>';
-                        document.getElementById('copyButton').style.display = 'none';
+                        ErrorHandler.handleProcessingError(error);
                     }
-                }, 300);
+                }, CONSTANTS.DEBOUNCE_TIMEOUT);
             } catch (error) {
-                console.error('Error in input handler:', error);
+                ErrorHandler.logWarning('Input handler error', error);
             }
         });
 
@@ -1642,12 +1661,11 @@ Cristy
         try {
             updateResults();
         } catch (error) {
-            console.error('Error in initial calculation:', error);
-            document.getElementById('results').innerHTML = '<div class="no-data">Erro ao carregar a página. Por favor, recarregue.</div>';
+            ErrorHandler.handleProcessingError(error, '<div class="no-data">Erro ao carregar a página. Por favor, recarregue.</div>');
         }
         // localStorage functions
         function resetData() {
-            const confirmReset = confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.');
+            const confirmReset = confirm(CONSTANTS.MESSAGES.RESET_CONFIRM);
 
             if (confirmReset) {
                 try {
@@ -1659,25 +1677,18 @@ Cristy
                     autoExpandTextarea(textarea);
 
                     // Clear results
-                    document.getElementById('results').innerHTML = '<div class="no-data">Adicione despesas acima para ver a divisão e acertos</div>';
+                    document.getElementById('results').innerHTML = `<div class="no-data">${CONSTANTS.MESSAGES.NO_DATA_ADD_EXPENSES}</div>`;
 
-                    // Hide copy button and reset button
-                    document.getElementById('copyButton').style.display = 'none';
-                    document.getElementById('resetButton').style.display = 'none';
+                    // Hide buttons
+                    setButtonVisibility(false);
 
                     // Clear localStorage
-                    localStorage.removeItem('expenseInputData');
+                    localStorage.removeItem(CONSTANTS.STORAGE_KEY);
 
                     // Reset global variables
-                    currentPeopleData = [];
-                    currentSettlements = [];
-                    currentSharedExpenses = [];
-                    previousResultsHTML = '';
-                    previousPeopleCount = 0;
-                    previousSettlementCount = 0;
+                    resetGlobalState();
                 } catch (error) {
-                    console.error('Error resetting data:', error);
-                    alert('Erro ao limpar os dados. Tente novamente.');
+                    ErrorHandler.handleUIError(error, CONSTANTS.MESSAGES.RESET_ERROR);
                 }
             }
         }
@@ -1685,7 +1696,7 @@ Cristy
         function saveToLocalStorage() {
             try {
                 const textarea = document.getElementById('expenseInput');
-                localStorage.setItem('expenseInputData', textarea.value);
+                localStorage.setItem(CONSTANTS.STORAGE_KEY, textarea.value);
             } catch (error) {
                 console.error('Error saving to localStorage:', error);
             }
@@ -1693,23 +1704,23 @@ Cristy
 
         function loadFromLocalStorage() {
             try {
-                const savedData = localStorage.getItem('expenseInputData');
+                const savedData = localStorage.getItem(CONSTANTS.STORAGE_KEY);
                 if (savedData) {
                     const textarea = document.getElementById('expenseInput');
                     textarea.value = savedData;
-                    
+
                     // Parse and reformat the loaded data
                     const { people, sharedExpenses } = parseExpenses(savedData);
                     if (people && sharedExpenses) {
                         currentPeopleData = people;
                         currentSharedExpenses = sharedExpenses;
-                        
+
                         const formattedText = formatInputText();
                         if (formattedText) {
                             textarea.value = formattedText;
                         }
                     }
-                    
+
                     // Auto-expand after loading content
                     autoExpandTextarea(textarea);
                     // Update results after loading
