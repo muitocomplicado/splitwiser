@@ -323,7 +323,38 @@
             border-left: 3px solid var(--border-error);
         }
 
+        /* Slide animations */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+        }
+
+        .slide-in {
+            opacity: 0;
+            transform: translateY(-15px);
+            animation: slideDown 0.3s ease-out forwards;
+        }
+
+        .slide-out {
+            animation: fadeOut 0.2s ease-in forwards;
+        }
 
         @media (max-width: 768px) {
             .settle-text {
@@ -393,6 +424,11 @@ Cristy
         let currentPeopleData = {};
         let currentSettlements = [];
         let currentSharedExpenses = [];
+        let previousResultsHTML = '';
+        let previousPeopleCount = 0;
+        let previousSettlementCount = 0;
+        let previousPeopleNames = [];
+        let previousSettlementKeys = [];
 
         function findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
             // First try exact match with original names
@@ -1189,6 +1225,11 @@ Cristy
                     currentPeopleData = {};
                     currentSettlements = [];
                     currentSharedExpenses = [];
+                    previousResultsHTML = '';
+                    previousPeopleCount = 0;
+                    previousSettlementCount = 0;
+                    previousPeopleNames = [];
+                    previousSettlementKeys = [];
                     return;
                 }
 
@@ -1202,6 +1243,11 @@ Cristy
                     currentPeopleData = {};
                     currentSettlements = [];
                     currentSharedExpenses = [];
+                    previousResultsHTML = '';
+                    previousPeopleCount = 0;
+                    previousSettlementCount = 0;
+                    previousPeopleNames = [];
+                    previousSettlementKeys = [];
                     return;
                 }
 
@@ -1214,6 +1260,11 @@ Cristy
                     currentPeopleData = {};
                     currentSettlements = [];
                     currentSharedExpenses = [];
+                    previousResultsHTML = '';
+                    previousPeopleCount = 0;
+                    previousSettlementCount = 0;
+                    previousPeopleNames = [];
+                    previousSettlementKeys = [];
                     return;
                 }
 
@@ -1229,54 +1280,129 @@ Cristy
                 // Calculate fair share amounts using the helper function
                 const fairShares = calculateFairShares(names, sharedExpenses, people);
 
-                let html = '';
+                // Create keys for comparison
+                const newPeopleNames = names.slice();
+                const newSettlementKeys = currentSettlements.map(s => `${s.from}->${s.to}-${s.amount}`);
 
-                // Show individual totals with fair shares
-                names.forEach(name => {
-                    const personTotal = people[name] ? people[name].total || 0 : 0;
-                    const fairShare = fairShares[name] || 0;
-                    const displayName = people[name] ? people[name].displayName : name;
-                    const parts = people[name] ? people[name].parts : 1;
-                    const partsText = parts > 1 ? ` (${parts})` : '';
-                    html += `
-                        <div class="person-summary">
-                            <span class="person-name">${escapeHtml(displayName)}${partsText}</span>
-                            <span class="person-total">${formatNumber(fairShare)}</span>
-                        </div>
-                    `;
-                });
+                // Find removed items
+                const removedPeopleNames = previousPeopleNames.filter(name => !newPeopleNames.includes(name));
+                const removedSettlementKeys = previousSettlementKeys.filter(key => !newSettlementKeys.includes(key));
 
-                html += `
-                    <div class="person-summary total-row">
-                        <span class="person-name">Total</span>
-                        <span class="person-total">${formatNumber(totalExpenses)}</span>
-                    </div>`;
-
-                // Show settlements
-
-                if (totalExpenses === 0) {
-                    html += '<div class="no-data">Nenhuma despesa para acertar</div>';
-                } else if (currentSettlements.length === 0) {
-                    html += '<div class="no-data">Tudo está acertado!</div>';
-                } else {
-                    currentSettlements.forEach((settlement, index) => {
-                        const fromPerson = people[settlement.from];
-                        const toPerson = people[settlement.to];
-                        const fromName = fromPerson ? fromPerson.displayName : settlement.from;
-                        const toName = toPerson ? toPerson.displayName : settlement.to;
-                        html += `
-                            <div class="settlement-wrapper" data-settlement-index="${index}">
-                                <span class="settlement-text">${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}</span>
-                                <button class="settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
-                            </div>
-                        `;
+                // If items are being removed, animate them out first
+                if (removedPeopleNames.length > 0 || removedSettlementKeys.length > 0) {
+                    // Add slide-out animation to removed items
+                    removedPeopleNames.forEach(name => {
+                        const personElements = resultsDiv.querySelectorAll('.person-summary');
+                        personElements.forEach(element => {
+                            const nameElement = element.querySelector('.person-name');
+                            if (nameElement && nameElement.textContent.includes(name)) {
+                                element.classList.add('slide-out');
+                            }
+                        });
                     });
+
+                    removedSettlementKeys.forEach(key => {
+                        const [fromTo] = key.split('-');
+                        const settlementElements = resultsDiv.querySelectorAll('.settlement-wrapper');
+                        settlementElements.forEach(element => {
+                            const textElement = element.querySelector('.settlement-text');
+                            if (textElement && textElement.textContent.includes(fromTo)) {
+                                element.classList.add('slide-out');
+                            }
+                        });
+                    });
+
+                    // Wait for slide-out animation to complete, then update
+                    setTimeout(() => {
+                        proceedWithUpdate();
+                    }, 200);
+                    return;
                 }
 
-                resultsDiv.innerHTML = html;
+                proceedWithUpdate();
 
-                // Show copy button when there are results
-                copyButton.style.display = 'block';
+                function proceedWithUpdate() {
+                    // Determine if we should animate based on changes
+                    const newPeopleCount = names.length + 1; // +1 for total row
+                    const newSettlementCount = currentSettlements.length;
+                    const shouldAnimateNewItems = newPeopleCount > previousPeopleCount || newSettlementCount > previousSettlementCount || previousPeopleCount === 0;
+                    const isFirstLoad = previousPeopleCount === 0;
+
+                    let html = '';
+                    let animationDelay = 0;
+
+                    // Show individual totals with fair shares
+                    names.forEach((name, index) => {
+                        const personTotal = people[name] ? people[name].total || 0 : 0;
+                        const fairShare = fairShares[name] || 0;
+                        const displayName = people[name] ? people[name].displayName : name;
+                        const parts = people[name] ? people[name].parts : 1;
+                        const partsText = parts > 1 ? ` (${parts})` : '';
+
+                        const shouldAnimate = shouldAnimateNewItems && index >= previousPeopleCount - 1;
+                        const animationClass = shouldAnimate ? 'slide-in' : '';
+                        const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+
+                        html += `
+                            <div class="person-summary ${animationClass}" ${animationStyle}>
+                                <span class="person-name">${escapeHtml(displayName)}${partsText}</span>
+                                <span class="person-total">${formatNumber(fairShare)}</span>
+                            </div>
+                        `;
+                        if (shouldAnimate) animationDelay += 50;
+                    });
+
+                    // Total row - only animate on first load
+                    const totalShouldAnimate = isFirstLoad;
+                    const totalAnimationClass = totalShouldAnimate ? 'slide-in' : '';
+                    const totalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+
+                    html += `
+                        <div class="person-summary total-row ${totalAnimationClass}" ${totalAnimationStyle}>
+                            <span class="person-name">Total</span>
+                            <span class="person-total">${formatNumber(totalExpenses)}</span>
+                        </div>`;
+
+                    if (totalShouldAnimate) animationDelay += 100; // Extra delay before settlements
+
+                    // Show settlements
+                    if (totalExpenses === 0) {
+                        html += '<div class="no-data">Nenhuma despesa para acertar</div>';
+                    } else if (currentSettlements.length === 0) {
+                        html += '<div class="no-data">Tudo está acertado!</div>';
+                    } else {
+                        currentSettlements.forEach((settlement, index) => {
+                            const fromPerson = people[settlement.from];
+                            const toPerson = people[settlement.to];
+                            const fromName = fromPerson ? fromPerson.displayName : settlement.from;
+                            const toName = toPerson ? toPerson.displayName : settlement.to;
+
+                            const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
+                            const animationClass = shouldAnimate ? 'slide-in' : '';
+                            const animationStyle = shouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+
+                            html += `
+                                <div class="settlement-wrapper ${animationClass}" data-settlement-index="${index}" ${animationStyle}>
+                                    <span class="settlement-text">${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}</span>
+                                    <button class="settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
+                                </div>
+                            `;
+                            if (shouldAnimate) animationDelay += 75;
+                        });
+                    }
+
+                    resultsDiv.innerHTML = html;
+
+                    // Update tracking variables
+                    previousResultsHTML = html;
+                    previousPeopleCount = newPeopleCount;
+                    previousSettlementCount = newSettlementCount;
+                    previousPeopleNames = newPeopleNames.slice();
+                    previousSettlementKeys = newSettlementKeys.slice();
+
+                    // Show copy button when there are results
+                    copyButton.style.display = 'block';
+                }
 
             } catch (error) {
                 console.error('Error updating results:', error);
@@ -1285,6 +1411,9 @@ Cristy
                 currentPeopleData = {};
                 currentSettlements = [];
                 currentSharedExpenses = [];
+                previousResultsHTML = '';
+                previousPeopleCount = 0;
+                previousSettlementCount = 0;
             }
         }
 
@@ -1365,10 +1494,15 @@ Cristy
                             button.style.display = 'none';
                         }
 
-                        // Remove the settlement after 1 second
+                        // Animate the settlement removal
                         setTimeout(() => {
-                            updateResults();
-                        }, 1000);
+                            settlementWrapper.classList.add('slide-out');
+
+                            // Remove the settlement after animation completes
+                            setTimeout(() => {
+                                updateResults();
+                            }, 200);
+                        }, 800);
                     }
                 }
             } catch (error) {
@@ -1432,6 +1566,9 @@ Cristy
                     currentPeopleData = [];
                     currentSettlements = [];
                     currentSharedExpenses = [];
+                    previousResultsHTML = '';
+                    previousPeopleCount = 0;
+                    previousSettlementCount = 0;
                 } catch (error) {
                     console.error('Error resetting data:', error);
                     alert('Erro ao limpar os dados. Tente novamente.');
