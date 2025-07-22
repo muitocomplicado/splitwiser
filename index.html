@@ -213,6 +213,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
         .button-base:hover {
@@ -248,6 +249,12 @@
         .settle-button.settled {
             background: var(--text-success);
             cursor: default;
+        }
+
+        @media (max-width: 768px) {
+            .settle-text {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -998,7 +1005,7 @@ Cristy
                         html += `
                             <div class="settlement-item">
                                 <span class="settlement-text">${escapeHtml(settlement.from)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(settlement.to)}</span>
-                                <button class="button-base settle-button" onclick="settlePayment(${index})">✓ ACERTADO</button>
+                                <button class="button-base settle-button" onclick="settlePayment(${index})">✓<span class="settle-text"> ACERTADO</span></button>
                             </div>
                         `;
                     });
