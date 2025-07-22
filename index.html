@@ -1169,7 +1169,8 @@ Cristy
                                 const isSharedWithAll = sharedExpense.sharedWith.length === allNames.length && 
                                                        sharedExpense.sharedWith.every(p => allNames.includes(p));
                                 
-                                if (!isSharedWithAll && sharedExpense.sharedWith.length > 1) {
+                                // Always add participant names unless shared with all people
+                                if (!isSharedWithAll && sharedExpense.sharedWith.length > 0) {
                                     // Add shared participants to description
                                     const participants = sharedExpense.sharedWith.map(p => {
                                         const participantData = currentPeopleData[p];
@@ -1561,6 +1562,23 @@ Cristy
                     // Update the textarea
                     textarea.value = lines.join('\n');
 
+                    // Reparse the expenses to update data structures with the new settlement
+                    const { people, sharedExpenses } = parseExpenses(textarea.value);
+                    
+                    if (people && sharedExpenses) {
+                        currentPeopleData = people;
+                        currentSharedExpenses = sharedExpenses;
+                        
+                        // Now reformat the input text with updated data
+                        const formattedText = formatInputText();
+                        
+                        if (formattedText) {
+                            textarea.value = formattedText;
+                            // Auto-expand textarea after formatting
+                            autoExpandTextarea(textarea);
+                        }
+                    }
+
                     // Save to localStorage after updating textarea
                     saveToLocalStorage();
 
@@ -1679,6 +1697,19 @@ Cristy
                 if (savedData) {
                     const textarea = document.getElementById('expenseInput');
                     textarea.value = savedData;
+                    
+                    // Parse and reformat the loaded data
+                    const { people, sharedExpenses } = parseExpenses(savedData);
+                    if (people && sharedExpenses) {
+                        currentPeopleData = people;
+                        currentSharedExpenses = sharedExpenses;
+                        
+                        const formattedText = formatInputText();
+                        if (formattedText) {
+                            textarea.value = formattedText;
+                        }
+                    }
+                    
                     // Auto-expand after loading content
                     autoExpandTextarea(textarea);
                     // Update results after loading
