@@ -387,7 +387,9 @@ Ana 3 (grupo de três, terá parte maior na divisão)
 
 Cristy
 50 (descrição opcional)
-125,75 Compras - C,A (pode usar somente iniciais)"></textarea>
+125,75 Compras - C,A (pode usar somente iniciais)"
+onblur="handleBlur()"
+onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
     <div id="validationWarning" class="validation-warning" style="display: none;">
         <div id="validationContent"></div>
@@ -398,8 +400,8 @@ Cristy
     </div>
 
     <div class="actions">
-        <button class="copy-button" id="copyButton" style="display: none;">COPIAR RESUMO</button>
-        <button class="reset-button" id="resetButton" style="display: none;">LIMPAR</button>
+        <button class="copy-button" id="copyButton" onclick="copyToClipboard()" style="display: none;">COPIAR RESUMO</button>
+        <button class="reset-button" id="resetButton" onclick="resetData()" style="display: none;">LIMPAR</button>
     </div>
 
     <!-- Web Component Templates -->
@@ -606,7 +608,9 @@ Cristy
 
             clone.querySelector('.settlement-text').textContent = `${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}`;
 
-
+            // Add inline onclick handler to the settle button
+            const settleButton = clone.querySelector('.settle-button');
+            settleButton.setAttribute('onclick', `settlePayment(${index})`);
 
             // Create a temporary div to get the outerHTML
             const tempDiv = document.createElement('div');
@@ -1297,6 +1301,22 @@ Cristy
             }
         }
 
+        function handleBlur() {
+            try {
+                // Cancel any pending debounced update
+                clearTimeout(debounceTimer);
+
+                // Always process current content and update results immediately
+                updateResults();
+                saveToLocalStorage();
+
+                // Also apply formatting
+                applyFormattedTextToTextarea(false); // Don't save again since we just saved
+            } catch (error) {
+                ErrorHandler.logWarning('Blur handler error', error);
+            }
+        }
+
         function formatInputText() {
             try {
                 const names = Object.keys(currentPeopleData);
@@ -1712,16 +1732,6 @@ Cristy
             }
         }
 
-        // Event delegation for settle buttons
-        document.getElementById('results').addEventListener('click', function(event) {
-            if (event.target.closest('.settle-button')) {
-                const settlementWrapper = event.target.closest('.settlement-wrapper');
-                const settlementIndex = parseInt(settlementWrapper.dataset.settlementIndex);
-                if (!isNaN(settlementIndex)) {
-                    settlePayment(settlementIndex);
-                }
-            }
-        });
 
         // Add debounced event listener with error handling
         document.getElementById('expenseInput').addEventListener('input', function() {
@@ -1743,10 +1753,6 @@ Cristy
             }
         });
 
-        // Add blur event listener to format text when focus is lost
-        document.getElementById('expenseInput').addEventListener('blur', function() {
-            applyFormattedTextToTextarea();
-        });
 
         // Initial calculation with error handling
         try {
@@ -1852,13 +1858,6 @@ Cristy
             textarea.style.height = newHeight + 'px';
         }
 
-        // Add paste event listener for auto-expand
-        document.getElementById('expenseInput').addEventListener('paste', function() {
-            // Use setTimeout to allow paste content to be processed first
-            setTimeout(() => {
-                autoExpandTextarea(this);
-            }, 0);
-        });
 
         // Handle window resize to recalculate max height
         window.addEventListener('resize', function() {
@@ -1877,11 +1876,6 @@ Cristy
             }
         });
 
-        // Add event listeners for action buttons
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('copyButton').addEventListener('click', copyToClipboard);
-            document.getElementById('resetButton').addEventListener('click', resetData);
-        });
     </script>
 </body>
 </html>
