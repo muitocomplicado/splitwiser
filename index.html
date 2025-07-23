@@ -1177,37 +1177,12 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
                 let text = '';
 
-                // Calculate maximum width for amounts across all expenses
-                let maxWidth = 0;
-                names.forEach(name => {
-                    const person = currentPeopleData[name];
-                    if (person && person.expenses.length > 0) {
-                        person.expenses.forEach(expense => {
-                            const width = formatNumber(expense.amount).length;
-                            if (width > maxWidth) maxWidth = width;
-                        });
-                    }
-                });
-
-                // Add parsed expenses by person
-                text += '*GASTOS*\n';
-                names.forEach(name => {
-                    const person = currentPeopleData[name];
-                    const displayName = person ? person.displayName : name;
-                    const parts = person ? person.parts : 1;
-                    const partsText = parts > 1 ? ` (${parts})` : '';
-                    text += `${displayName}${partsText}\n`;
-                    if (person && person.expenses.length > 0) {
-                        person.expenses.forEach(expense => {
-                            const formattedAmount = formatNumber(expense.amount);
-                            const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
-                            const description = expense.description ? ` ${expense.description}` : '';
-                            text += ` ${paddedAmount}${description}\n`;
-                        });
-                        text += '\n';
-                    }
-
-                });
+                // Use the already formatted input text instead of regenerating it
+                const formattedInputText = formatInputText();
+                if (formattedInputText) {
+                    text += '*GASTOS*\n';
+                    text += formattedInputText + '\n';
+                }
 
                 // Add summary
                 text += '\n*DIVISÃO*\n';
@@ -1250,7 +1225,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             try {
                 const textarea = document.getElementById('expenseInput');
                 const formattedText = formatInputText();
-                
+
                 if (formattedText && formattedText !== textarea.value) {
                     textarea.value = formattedText;
                     autoExpandTextarea(textarea);
@@ -1322,8 +1297,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
                                 // Check if this expense is shared with specific people (not all)
                                 const allNames = Object.keys(currentPeopleData);
-                                const isSharedWithAll = sharedExpense.sharedWith.length === allNames.length &&
-                                                       sharedExpense.sharedWith.every(p => allNames.includes(p));
+                                const isSharedWithAll = sharedExpense.sharedWith.length === allNames.length && sharedExpense.sharedWith.every(p => allNames.includes(p));
 
                                 // Always add participant names unless shared with all people
                                 if (!isSharedWithAll && sharedExpense.sharedWith.length > 0) {
@@ -1336,7 +1310,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                                 }
 
                                 const fullDescription = description ? ` ${description}` : '';
-                                formattedText += ` ${paddedAmount}${fullDescription}\n`;
+                                formattedText += `${paddedAmount}${fullDescription}\n`;
                             }
                         });
 
