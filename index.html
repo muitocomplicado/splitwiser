@@ -353,19 +353,7 @@
     </style>
 </head>
 <body>
-    <textarea id="expenseInput" placeholder="ADICIONE DESPESAS NO FORMATO:
-
-David
-18,11 Pedágio (por padrão dividido entre todos)
-1.200,00 Hotel (pode usar ponto ou vírgula)
-
-Ana 3 (grupo de três, terá parte maior na divisão)
-45 Restaurante (não precisa colocar centavos)
-23 Lanche - David, Ana (dividido somente entre David e Ana)
-
-Cristy
-50 (descrição opcional)
-125,75 Compras - C,A (pode usar somente iniciais)"
+    <textarea id="expenseInput" placeholder=""
 onblur="handleBlur()"
 onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
@@ -380,8 +368,8 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
     </div>
 
     <div class="actions">
-        <button class="copy-button" id="copyButton" onclick="copyToClipboard()" style="display: none;">COPIAR RESUMO</button>
-        <button class="reset-button" id="resetButton" onclick="resetData()" style="display: none;">LIMPAR</button>
+        <button class="copy-button" id="copyButton" onclick="copyToClipboard()" style="display: none;"></button>
+        <button class="reset-button" id="resetButton" onclick="resetData()" style="display: none;"></button>
     </div>
 
     <!-- Web Component Templates -->
@@ -395,7 +383,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
     <template id="settlement-template">
         <div class="summary settlements-summary">
             <span class="label"></span>
-            <button class="settle-button">✓<span class="settle-text"> ACERTADO</span></button>
+            <button class="settle-button">✓<span class="settle-text"></span></button>
         </div>
     </template>
 
@@ -447,6 +435,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
         // Utility function to reset global state variables
         function resetGlobalState() {
+            debounceTimer = null;
             currentPeopleData = {};
             currentSettlements = [];
             currentTransactions = [];
@@ -457,6 +446,18 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             previousSettlementKeys = [];
             isSettling = false;
         }
+
+        // Locale detection and management
+        function getLocale() {
+            const browserLang = navigator.language || navigator.userLanguage || 'en';
+            const lang = browserLang.toLowerCase();
+
+            if (lang.startsWith('pt')) return 'pt-BR';
+            if (lang.startsWith('es')) return 'es';
+            return 'en';
+        }
+
+        const currentLocale = getLocale();
 
         // Constants for configuration and magic values
         const CONSTANTS = {
@@ -483,44 +484,221 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 SETTLEMENT_SUCCESS: 'settlement-success'
             },
 
-            // Messages
-            MESSAGES: {
-                PROCESSING_ERROR: 'Erro ao processar os dados. Verifique o formato.',
-                SETTLED_TEXT: 'ACERTADO',
-                COPY_SUCCESS: 'COPIADO ✓',
-                NOTHING_TO_COPY: 'Nada para copiar. Adicione alguns gastos primeiro.',
-                COPY_ERROR: 'Erro ao copiar. Tente novamente.',
-                RESET_CONFIRM: 'Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.',
-                RESET_ERROR: 'Erro ao limpar os dados. Tente novamente.',
-                EXPENSES: 'Gastos',
-                SETTLEMENTS: 'Acertos',
-                TRANSACTIONS_SECTION: '*PAGAMENTOS*',
-                EXPENSES_SECTION: '*GASTOS*',
-                SETTLEMENTS_SECTION: '*ACERTOS*',
+            // Localized strings
+            STRINGS: {
+                'en': {
+                    PROCESSING_ERROR: 'Error processing data. Check the format.',
+                    SETTLED_TEXT: 'SETTLED',
+                    COPY_SUCCESS: 'COPIED ✓',
+                    NOTHING_TO_COPY: 'Nothing to copy. Add some expenses first.',
+                    COPY_ERROR: 'Error copying. Try again.',
+                    RESET_CONFIRM: 'Are you sure you want to clear all data? This action cannot be undone.',
+                    RESET_ERROR: 'Error clearing data. Try again.',
+                    EXPENSES: 'Expenses',
+                    SETTLEMENTS: 'Settlements',
+                    TRANSACTIONS_SECTION: '*PAYMENTS*',
+                    EXPENSES_SECTION: '*EXPENSES*',
+                    SETTLEMENTS_SECTION: '*SETTLEMENTS*',
+                    OWES_TEMPLATE: '{fromName} owes {amount} to {toName}',
+                    SETTLEMENT_WORD: 'Settlement',
+                    PERSON_NOT_FOUND: 'does not match any listed person',
+                    AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" is ambiguous - could refer to: {matchingNames}',
+                    PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
+                    PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
+                    PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
+                    EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
+                    COPY_MANUAL_SELECT: 'Could not copy automatically. Please select and copy manually.',
+                    COPY_MANUAL_FALLBACK: 'Error copying. Try selecting and copying manually.',
+                    SETTLEMENT_ERROR: 'Error processing settlement. Try again.',
+                    ALL_SETTLED: 'All settled!',
+                    NOTHING_TO_SETTLE: 'Nothing to settle!',
+                    COPY_SUMMARY: 'COPY SUMMARY',
+                    CLEAR: 'CLEAR',
+                    SETTLED_BUTTON: 'SETTLED',
+                    NO_DATA_MESSAGE: 'Add expenses above to see division and settlements',
+                    ALL_SETTLED_UP: 'Everything is settled!',
+                    NO_EXPENSES_TO_SETTLE: 'No expenses to settle',
+                    ERROR_GENERATING_SUMMARY: 'Error generating summary',
+                    ERROR_LOADING_PAGE: 'Error loading page. Please reload.',
+                    PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
 
-                OWES_TEMPLATE: '{fromName} deve {amount} para {toName}',
-                SETTLEMENT_WORD: 'Acerto',
-                PERSON_NOT_FOUND: 'não corresponde a nenhuma pessoa listada',
-                AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" é ambíguo - pode se referir a: {matchingNames}',
-                PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
-                PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
-                PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
-                EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
-                COPY_MANUAL_SELECT: 'Não foi possível copiar automaticamente. Selecione e copie manualmente.',
-                COPY_MANUAL_FALLBACK: 'Erro ao copiar. Tente selecionar e copiar manualmente.',
-                SETTLEMENT_ERROR: 'Erro ao processar acerto. Tente novamente.',
-                ALL_SETTLED: 'Tudo acertado!',
-                NOTHING_TO_SETTLE: 'Nada para acertar!'
+David
+18.11 Toll (by default divided among everyone)
+1200.00 Hotel (can use dot or comma)
+
+Ana 3 (group of three, will have larger share in division)
+45 Restaurant (no need to add cents)
+23 Lunch - David, Ana (divided only between David and Ana)
+
+Cristy
+50 (description optional)
+125.75 Shopping - C,A (can use only initials)
+`
+                },
+                'pt-BR': {
+                    PROCESSING_ERROR: 'Erro ao processar os dados. Verifique o formato.',
+                    SETTLED_TEXT: 'ACERTADO',
+                    COPY_SUCCESS: 'COPIADO ✓',
+                    NOTHING_TO_COPY: 'Nada para copiar. Adicione alguns gastos primeiro.',
+                    COPY_ERROR: 'Erro ao copiar. Tente novamente.',
+                    RESET_CONFIRM: 'Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.',
+                    RESET_ERROR: 'Erro ao limpar os dados. Tente novamente.',
+                    EXPENSES: 'Gastos',
+                    SETTLEMENTS: 'Acertos',
+                    TRANSACTIONS_SECTION: '*PAGAMENTOS*',
+                    EXPENSES_SECTION: '*GASTOS*',
+                    SETTLEMENTS_SECTION: '*ACERTOS*',
+                    OWES_TEMPLATE: '{fromName} deve {amount} para {toName}',
+                    SETTLEMENT_WORD: 'Acerto',
+                    PERSON_NOT_FOUND: 'não corresponde a nenhuma pessoa listada',
+                    AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" é ambíguo - pode se referir a: {matchingNames}',
+                    PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
+                    PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
+                    PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
+                    EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
+                    COPY_MANUAL_SELECT: 'Não foi possível copiar automaticamente. Selecione e copie manualmente.',
+                    COPY_MANUAL_FALLBACK: 'Erro ao copiar. Tente selecionar e copiar manualmente.',
+                    SETTLEMENT_ERROR: 'Erro ao processar acerto. Tente novamente.',
+                    ALL_SETTLED: 'Tudo acertado!',
+                    NOTHING_TO_SETTLE: 'Nada para acertar!',
+                    COPY_SUMMARY: 'COPIAR RESUMO',
+                    CLEAR: 'LIMPAR',
+                    SETTLED_BUTTON: 'ACERTADO',
+                    NO_DATA_MESSAGE: 'Adicione despesas acima para ver a divisão e acertos',
+                    ALL_SETTLED_UP: 'Tudo está acertado!',
+                    NO_EXPENSES_TO_SETTLE: 'Nenhum gasto para acertar',
+                    ERROR_GENERATING_SUMMARY: 'Erro ao gerar resumo',
+                    ERROR_LOADING_PAGE: 'Erro ao carregar a página. Por favor, recarregue.',
+                    PLACEHOLDER: `ADICIONE DESPESAS NO FORMATO:
+
+David
+18,11 Pedágio (por padrão dividido entre todos)
+1.200,00 Hotel (pode usar ponto ou vírgula)
+
+Ana 3 (grupo de três, terá parte maior na divisão)
+45 Restaurante (não precisa colocar centavos)
+23 Lanche - David, Ana (dividido somente entre David e Ana)
+
+Cristy
+50 (descrição opcional)
+125,75 Compras - C,A (pode usar somente iniciais)
+`
+                },
+                'es': {
+                    PROCESSING_ERROR: 'Error al procesar los datos. Verifique el formato.',
+                    SETTLED_TEXT: 'LIQUIDADO',
+                    COPY_SUCCESS: 'COPIADO ✓',
+                    NOTHING_TO_COPY: 'Nada que copiar. Agregue algunos gastos primero.',
+                    COPY_ERROR: 'Error al copiar. Inténtelo de nuevo.',
+                    RESET_CONFIRM: '¿Está seguro de que desea borrar todos los datos? Esta acción no se puede deshacer.',
+                    RESET_ERROR: 'Error al borrar los datos. Inténtelo de nuevo.',
+                    EXPENSES: 'Gastos',
+                    SETTLEMENTS: 'Liquidaciones',
+                    TRANSACTIONS_SECTION: '*PAGOS*',
+                    EXPENSES_SECTION: '*GASTOS*',
+                    SETTLEMENTS_SECTION: '*LIQUIDACIONES*',
+                    OWES_TEMPLATE: '{fromName} debe {amount} a {toName}',
+                    SETTLEMENT_WORD: 'Liquidación',
+                    PERSON_NOT_FOUND: 'no corresponde a ninguna persona listada',
+                    AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" es ambiguo - puede referirse a: {matchingNames}',
+                    PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
+                    PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
+                    PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
+                    EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
+                    COPY_MANUAL_SELECT: 'No se pudo copiar automáticamente. Seleccione y copie manualmente.',
+                    COPY_MANUAL_FALLBACK: 'Error al copiar. Intente seleccionar y copiar manualmente.',
+                    SETTLEMENT_ERROR: 'Error al procesar la liquidación. Inténtelo de nuevo.',
+                    ALL_SETTLED: '¡Todo liquidado!',
+                    NOTHING_TO_SETTLE: '¡Nada que liquidar!',
+                    COPY_SUMMARY: 'COPIAR RESUMEN',
+                    CLEAR: 'LIMPIAR',
+                    SETTLED_BUTTON: 'LIQUIDADO',
+                    NO_DATA_MESSAGE: 'Agregue gastos arriba para ver la división y liquidaciones',
+                    ALL_SETTLED_UP: '¡Todo está liquidado!',
+                    NO_EXPENSES_TO_SETTLE: 'Ningún gasto que liquidar',
+                    ERROR_GENERATING_SUMMARY: 'Error al generar resumen',
+                    ERROR_LOADING_PAGE: 'Error al cargar la página. Por favor, recargue.',
+                    PLACEHOLDER: `AGREGUE GASTOS EN EL FORMATO:
+
+David
+18,11 Peaje (por defecto dividido entre todos)
+1.200,00 Hotel (puede usar punto o coma)
+
+Ana 3 (grupo de tres, tendrá mayor parte en la división)
+45 Restaurante (no necesita poner centavos)
+23 Almuerzo - David, Ana (dividido solo entre David y Ana)
+
+Cristy
+50 (descripción opcional)
+125,75 Compras - C,A (puede usar solo iniciales)
+`
+                }
             },
 
+            // Helper function to get localized string
+            getString: function(key) {
+                return this.STRINGS[currentLocale] && this.STRINGS[currentLocale][key]
+                    ? this.STRINGS[currentLocale][key]
+                    : this.STRINGS['en'][key] || key;
+            },
 
+            // Messages (kept for backward compatibility, now uses getString)
+            get MESSAGES() {
+                const strings = this.STRINGS[currentLocale] || this.STRINGS['en'];
+                return {
+                    PROCESSING_ERROR: strings.PROCESSING_ERROR,
+                    SETTLED_TEXT: strings.SETTLED_TEXT,
+                    COPY_SUCCESS: strings.COPY_SUCCESS,
+                    NOTHING_TO_COPY: strings.NOTHING_TO_COPY,
+                    COPY_ERROR: strings.COPY_ERROR,
+                    RESET_CONFIRM: strings.RESET_CONFIRM,
+                    RESET_ERROR: strings.RESET_ERROR,
+                    EXPENSES: strings.EXPENSES,
+                    SETTLEMENTS: strings.SETTLEMENTS,
+                    TRANSACTIONS_SECTION: strings.TRANSACTIONS_SECTION,
+                    EXPENSES_SECTION: strings.EXPENSES_SECTION,
+                    SETTLEMENTS_SECTION: strings.SETTLEMENTS_SECTION,
+                    OWES_TEMPLATE: strings.OWES_TEMPLATE,
+                    SETTLEMENT_WORD: strings.SETTLEMENT_WORD,
+                    PERSON_NOT_FOUND: strings.PERSON_NOT_FOUND,
+                    AMBIGUOUS_PERSON_TEMPLATE: strings.AMBIGUOUS_PERSON_TEMPLATE,
+                    PERSON_NOT_FOUND_TEMPLATE: strings.PERSON_NOT_FOUND_TEMPLATE,
+                    PAYMENT_LINE_TEMPLATE: strings.PAYMENT_LINE_TEMPLATE,
+                    PERSON_WITH_PARTS_TEMPLATE: strings.PERSON_WITH_PARTS_TEMPLATE,
+                    EXPENSE_WITH_PARTICIPANTS_TEMPLATE: strings.EXPENSE_WITH_PARTICIPANTS_TEMPLATE,
+                    COPY_MANUAL_SELECT: strings.COPY_MANUAL_SELECT,
+                    COPY_MANUAL_FALLBACK: strings.COPY_MANUAL_FALLBACK,
+                    SETTLEMENT_ERROR: strings.SETTLEMENT_ERROR,
+                    ALL_SETTLED: strings.ALL_SETTLED,
+                    NOTHING_TO_SETTLE: strings.NOTHING_TO_SETTLE
+                };
+            },
 
             // LocalStorage
             STORAGE_KEY: 'expenseInputData',
 
             // Number formatting
-            DEFAULT_LOCALE: 'pt-BR',
+            DEFAULT_LOCALE: currentLocale === 'pt-BR' ? 'pt-BR' : currentLocale === 'es' ? 'es-ES' : 'en-US',
         };
+
+        // Function to initialize UI with localized strings
+        function initializeUI() {
+            // Set textarea placeholder
+            const textarea = document.getElementById('expenseInput');
+            textarea.placeholder = CONSTANTS.getString('PLACEHOLDER');
+
+            // Set button texts
+            const copyButton = document.getElementById('copyButton');
+            copyButton.textContent = CONSTANTS.getString('COPY_SUMMARY');
+
+            const resetButton = document.getElementById('resetButton');
+            resetButton.textContent = CONSTANTS.getString('CLEAR');
+
+            // Set settlement button template text
+            const settlementTemplate = document.getElementById('settlement-template');
+            const settleText = settlementTemplate.content.querySelector('.settle-text');
+            settleText.textContent = ' ' + CONSTANTS.getString('SETTLED_BUTTON');
+        }
 
         // Centralized error handling utility
         const ErrorHandler = {
@@ -1318,21 +1496,18 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                         const toPerson = currentPeopleData[settlement.to];
                         const fromName = fromPerson ? fromPerson.displayName : settlement.from;
                         const toName = toPerson ? toPerson.displayName : settlement.to;
-                        text += formatTemplate(
-                            CONSTANTS.MESSAGES.OWES_TEMPLATE,
-                            {
-                                fromName: fromName,
-                                amount: formatNumber(settlement.amount),
-                                toName: toName
-                            }
-                        ) + '\n';
+                        text += formatTemplate(CONSTANTS.MESSAGES.OWES_TEMPLATE, {
+                            fromName: fromName,
+                            amount: formatNumber(settlement.amount),
+                            toName: toName
+                        }) + '\n';
                     });
                 }
 
                 return text;
             } catch (error) {
                 console.error('Error generating text summary:', error);
-                return 'Erro ao gerar resumo';
+                return CONSTANTS.MESSAGES.ERROR_GENERATING_SUMMARY;
             }
         }
 
@@ -1379,7 +1554,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
         function formatInputText() {
             try {
-                const names = Object.keys(currentPeopleData);
+                const names = Object.keys(currentPeopleData || {});
                 if (names.length === 0) return '';
 
                 let formattedText = '';
@@ -1955,6 +2130,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         });
 
         document.addEventListener('DOMContentLoaded', function() {
+            initializeUI();
             loadFromLocalStorage();
             // Set initial height after loading
             const textarea = document.getElementById('expenseInput');
