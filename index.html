@@ -512,9 +512,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             STORAGE_KEY: 'expenseInputData',
 
             // Number formatting
-            DECIMAL_PLACES: 2,
             DEFAULT_LOCALE: 'pt-BR',
-            DEFAULT_CURRENCY: 'BRL'
         };
 
         // Centralized error handling utility
@@ -793,47 +791,14 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 // Use browser's locale for number formatting
                 const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
                 return amount.toLocaleString(locale, {
-                    minimumFractionDigits: CONSTANTS.DECIMAL_PLACES,
-                    maximumFractionDigits: CONSTANTS.DECIMAL_PLACES
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
                 });
             } catch (error) {
                 console.error('Error formatting number:', error);
                 // Fallback to fixed decimal if locale formatting fails
-                return amount.toFixed(CONSTANTS.DECIMAL_PLACES);
+                return amount.toFixed(2);
             }
-        }
-
-        function formatCurrency(amount) {
-            try {
-                // Format as currency using browser's locale
-                const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
-                return amount.toLocaleString(locale, {
-                    style: 'currency',
-                    currency: getCurrencyCode(locale),
-                    minimumFractionDigits: CONSTANTS.DECIMAL_PLACES,
-                    maximumFractionDigits: CONSTANTS.DECIMAL_PLACES
-                });
-            } catch (error) {
-                console.error('Error formatting currency:', error);
-                // Fallback to regular number formatting
-                return formatNumber(amount);
-            }
-        }
-
-        function getCurrencyCode(locale) {
-            // Map common locales to currency codes
-            const currencyMap = {
-                'pt-BR': 'BRL',
-                'pt-PT': 'EUR',
-                'en-US': 'USD',
-                'en-GB': 'GBP',
-                'es-ES': 'EUR',
-                'fr-FR': 'EUR',
-                'de-DE': 'EUR',
-                'it-IT': 'EUR'
-            };
-
-            return currencyMap[locale] || currencyMap[locale.split('-')[0]] || CONSTANTS.DEFAULT_CURRENCY;
         }
 
         // Safely escape HTML characters in user input to prevent HTML injection
