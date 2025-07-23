@@ -33,7 +33,8 @@
             --text-primary: #1c1917;
             --text-secondary: #44403c;
             --text-muted: #78716c;
-            --text-accent: #c2410c;
+            --text-settlements: #c2410c;
+            --text-expenses: #16a34a;
             --text-success: #ffffff;
             --bg-success: #16a34a;
             --shadow-success: rgba(22, 163, 74, 0.3);
@@ -43,11 +44,13 @@
             --bg-button-secondary: rgba(0, 0, 0, 0.1);
             --bg-button-secondary-hover: rgba(0, 0, 0, 0.2);
             --text-button-secondary: #1c1917;
+            --bg-button-settle: #c2410c;
+            --bg-button-settle-hover: #ea580c;
+            --text-button-settle: #ffffff;
             --border-primary: #ede7dc;
-            --border-accent: #f97316;
             --border-focus: #16a34a;
-            --border-summary: #44403c;
-            --border-total: #16a34a;
+            --border-expenses: #16a34a;
+            --border-settlements: #f97316;
             --bg-error: #fee;
             --text-error: #c53030;
             --border-error: #fc8181;
@@ -62,7 +65,8 @@
                 --text-primary: #fafaf9;
                 --text-secondary: #d6d3d1;
                 --text-muted: #a8a29e;
-                --text-accent: #fed7aa;
+                --text-settlements: #f97316;
+                --text-expenses: #16a34a;
                 --text-success: #000000;
                 --bg-success: #22c55e;
                 --shadow-success: rgba(34, 197, 94, 0.3);
@@ -72,11 +76,13 @@
                 --bg-button-secondary: rgba(255, 255, 255, 0.2);
                 --bg-button-secondary-hover: rgba(255, 255, 255, 0.5);
                 --text-button-secondary: #fafaf9;
+                --bg-button-settle: #f97316;
+                --bg-button-settle-hover: #fb923c;
+                --text-button-settle: #000000;
                 --border-primary: #44403c;
-                --border-accent: #ea580c;
                 --border-focus: #22c55e;
-                --border-summary: #78716c;
-                --border-total: #22c55e;
+                --border-expenses: #16a34a;
+                --border-settlements: #f97316;
                 --bg-error: #2d1b1b;
                 --text-error: #fc8181;
                 --border-error: #c53030;
@@ -129,20 +135,21 @@
         .results {
             margin-top: 20px;
             border-radius: 8px;
-            border: 1px solid var(--border-primary);
+            border: 0;
             overflow: hidden;
             transition: background-color 0.2s, border-color 0.2s;
             text-wrap: balance;
         }
 
-        .person-summary {
+        .summary {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 0;
-            padding: 12px;
+            padding: 10px 16px;
+            color: var(--text-primary);
             background: var(--bg-tertiary);
-            border-left: 4px solid var(--border-summary);
+            border-left: 4px solid var(--border-primary);
             transition: background-color 0.2s;
             flex-wrap: wrap;
             gap: 8px;
@@ -151,69 +158,41 @@
             border-bottom: 1px solid var(--border-primary);
         }
 
-        .person-summary:last-of-type {
+        .summary:last-of-type {
             border-bottom: none;
         }
 
-        .person-summary.total-row {
-            font-weight: bold;
-            border-left-color: var(--border-total);
-            margin-top: 10px;
-            margin-bottom: 10px;
+        .summary .label {
+            flex: 2 1 auto;
+            white-space: balance;
         }
 
-        .person-name {
-            font-weight: 500;
-            color: var(--text-primary);
-            flex: 0 0 auto;
-            white-space: nowrap;
-        }
-
-        .person-paid {
-            color: var(--text-muted);
-        }
-
-        .person-total {
-            color: var(--text-secondary);
-            font-weight: 500;
+        .summary .total {
             text-align: right;
             line-height: 1.3;
-            min-width: 100px;
         }
 
-        .settlement-wrapper {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0;
-            padding: 12px;
-            background: var(--bg-tertiary);
-            border-left: 4px solid var(--border-accent);
-            transition: background-color 0.2s;
-            flex-wrap: wrap;
-            gap: 8px;
-            width: 100%;
-            box-sizing: border-box;
-            border-bottom: 1px solid var(--border-primary);
+        .expenses-summary {
+            border-left: 4px solid var(--border-expenses);
         }
 
-        .settlement-wrapper:last-child {
-            border-bottom: none;
+        .settlements-summary {
+            border-left: 4px solid var(--border-settlements);
+        }
+        .settlements-summary .label {
+            margin-right: 8px;
         }
 
-        .settlement-text {
-            color: var(--text-accent);
-            font-weight: 500;
-            flex: 1;
+        .expenses-total {
+            color: var(--text-expenses);
+        }
+        .settlements-total {
+            color: var(--text-settlements);
         }
 
-        .no-data {
-            padding: 40px 20px;
-            text-align: center;
-            color: var(--text-muted);
-            font-style: italic;
-            width: 100%;
-            box-sizing: border-box;
+        .expenses-total, .settlements-total {
+            font-size: 1.1rem;
+            font-weight: bold;
         }
 
         button {
@@ -277,7 +256,12 @@
         .settle-button {
             padding: 6px 12px;
             border-radius: 4px;
-            margin-left: 10px;
+            background: var(--bg-button-settle);
+            color: var(--text-button-settle);
+        }
+
+        .settle-button:hover {
+            background: var(--bg-button-settle-hover);
         }
 
         .settle-button.settled {
@@ -286,23 +270,28 @@
             cursor: default;
         }
 
-        .settlement-wrapper.settlement-success {
+        .settlements-summary.settlement-success {
             background: var(--bg-success);
             color: var(--text-success);
             transform: scale(1.02);
             box-shadow: 0 2px 8px var(--shadow-success);
         }
 
-        .settlement-wrapper.settlement-success .settlement-text {
+        .settlements-summary.settlement-success .label {
             color: var(--text-success);
             text-align: center;
             font-weight: bold;
         }
 
-        .settlement-wrapper.settlement-success .settle-button {
+        .settlements-summary.settlement-success .settle-button {
             background: var(--bg-button-secondary-hover);
             color: var(--text-success);
             cursor: default;
+        }
+
+        .settlements-summary.all-settled-up {
+            color: var(--text-muted);
+            font-style: italic;
         }
 
         .validation-warning {
@@ -336,16 +325,7 @@
             }
         }
 
-        @keyframes fadeOut {
-            from {
-                opacity: 1;
-                transform: translateY(0) scale(1.02);
-            }
-            to {
-                opacity: 0;
-                transform: translateY(-10px) scale(1.02);
-            }
-        }
+
 
         .slide-in {
             opacity: 0;
@@ -353,9 +333,7 @@
             animation: slideDown 0.3s ease-out forwards;
         }
 
-        .slide-out {
-            animation: fadeOut 0.2s ease-in forwards;
-        }
+
 
         @media (max-width: 768px) {
             .settle-text {
@@ -395,8 +373,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         <div id="validationContent"></div>
     </div>
 
-    <div class="results" id="results">
-        <div class="no-data"></div>
+    <div class="results" id="expenses-results">
+    </div>
+
+    <div class="results" id="settlements-results">
     </div>
 
     <div class="actions">
@@ -405,23 +385,21 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
     </div>
 
     <!-- Web Component Templates -->
-    <template id="person-summary-template">
-        <div class="person-summary">
-            <span class="person-name"></span>
-            <span class="person-total"></span>
+    <template id="expenses-template">
+        <div class="summary expenses-summary">
+            <span class="label"></span>
+            <span class="total"></span>
         </div>
     </template>
 
     <template id="settlement-template">
-        <div class="settlement-wrapper">
-            <span class="settlement-text"></span>
+        <div class="summary settlements-summary">
+            <span class="label"></span>
             <button class="settle-button">✓<span class="settle-text"> ACERTADO</span></button>
         </div>
     </template>
 
-    <template id="no-data-template">
-        <div class="no-data"></div>
-    </template>
+
 
     <template id="validation-warning-template">
         <div class="warning-line"></div>
@@ -431,9 +409,13 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         // Global error handler
         window.onerror = function(message, source, lineno, colno, error) {
             console.error('Global error caught:', message, error);
-            const resultsDiv = document.getElementById('results');
-            if (resultsDiv) {
-                resultsDiv.innerHTML = '<div class="no-data">Erro: Por favor recarregue a página e tente novamente.</div>';
+            const expensesDiv = document.getElementById('expenses-results');
+            const settlementsDiv = document.getElementById('settlements-results');
+            if (expensesDiv) {
+                expensesDiv.innerHTML = '';
+            }
+            if (settlementsDiv) {
+                settlementsDiv.innerHTML = '';
             }
             return true;
         };
@@ -441,9 +423,13 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         // Promise rejection handler
         window.addEventListener('unhandledrejection', function(event) {
             console.error('Unhandled promise rejection:', event.reason);
-            const resultsDiv = document.getElementById('results');
-            if (resultsDiv) {
-                resultsDiv.innerHTML = '<div class="no-data">Erro: Por favor recarregue a página e tente novamente.</div>';
+            const expensesDiv = document.getElementById('expenses-results');
+            const settlementsDiv = document.getElementById('settlements-results');
+            if (expensesDiv) {
+                expensesDiv.innerHTML = '';
+            }
+            if (settlementsDiv) {
+                settlementsDiv.innerHTML = '';
             }
             event.preventDefault();
         });
@@ -451,23 +437,25 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         let debounceTimer;
         let currentPeopleData = {};
         let currentSettlements = [];
-        let currentSharedExpenses = [];
+        let currentTransactions = [];
         let previousResultsHTML = '';
         let previousPeopleCount = 0;
         let previousSettlementCount = 0;
         let previousPeopleNames = [];
         let previousSettlementKeys = [];
+        let isSettling = false;
 
         // Utility function to reset global state variables
         function resetGlobalState() {
             currentPeopleData = {};
             currentSettlements = [];
-            currentSharedExpenses = [];
+            currentTransactions = [];
             previousResultsHTML = '';
             previousPeopleCount = 0;
             previousSettlementCount = 0;
             previousPeopleNames = [];
             previousSettlementKeys = [];
+            isSettling = false;
         }
 
         // Constants for configuration and magic values
@@ -476,37 +464,56 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             DEBOUNCE_TIMEOUT: 300,
             COPY_SUCCESS_TIMEOUT: 2000,
             SETTLEMENT_SUCCESS_TIMEOUT: 800,
-            SLIDE_OUT_TIMEOUT: 200,
 
             // Animation delays (in milliseconds)
             PERSON_ANIMATION_DELAY: 50,
             SETTLEMENT_ANIMATION_DELAY: 75,
             TOTAL_ROW_EXTRA_DELAY: 100,
 
+            // Transaction types
+            TRANSACTION_TYPES: {
+                EXPENSE: 'expense',
+                SETTLEMENT: 'settlement'
+            },
+
             // CSS classes
             CSS_CLASSES: {
                 SLIDE_IN: 'slide-in',
-                SLIDE_OUT: 'slide-out',
                 COPIED: 'copied',
                 SETTLEMENT_SUCCESS: 'settlement-success'
             },
 
             // Messages
             MESSAGES: {
-                NO_DATA_INITIAL: 'Adicione despesas acima para calcular a divisão e os acertos',
-                NO_DATA_ADD_EXPENSES: 'Adicione despesas acima para ver a divisão e acertos',
-                NO_NAMES_FOUND: 'Nenhum nome válido encontrado',
-                CHECK_ERRORS: 'Verifique os erros acima antes de continuar',
-                NO_EXPENSES_TO_SETTLE: 'Nenhuma despesa para acertar',
-                ALL_SETTLED: 'Tudo está acertado!',
                 PROCESSING_ERROR: 'Erro ao processar os dados. Verifique o formato.',
                 SETTLED_TEXT: 'ACERTADO',
                 COPY_SUCCESS: 'COPIADO ✓',
                 NOTHING_TO_COPY: 'Nada para copiar. Adicione alguns gastos primeiro.',
                 COPY_ERROR: 'Erro ao copiar. Tente novamente.',
                 RESET_CONFIRM: 'Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.',
-                RESET_ERROR: 'Erro ao limpar os dados. Tente novamente.'
+                RESET_ERROR: 'Erro ao limpar os dados. Tente novamente.',
+                EXPENSES: 'Gastos',
+                SETTLEMENTS: 'Acertos',
+                TRANSACTIONS_SECTION: '*PAGAMENTOS*',
+                EXPENSES_SECTION: '*GASTOS*',
+                SETTLEMENTS_SECTION: '*ACERTOS*',
+
+                OWES_TEMPLATE: '{fromName} deve {amount} para {toName}',
+                SETTLEMENT_WORD: 'Acerto',
+                PERSON_NOT_FOUND: 'não corresponde a nenhuma pessoa listada',
+                AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" é ambíguo - pode se referir a: {matchingNames}',
+                PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
+                PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
+                PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
+                EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
+                COPY_MANUAL_SELECT: 'Não foi possível copiar automaticamente. Selecione e copie manualmente.',
+                COPY_MANUAL_FALLBACK: 'Erro ao copiar. Tente selecionar e copiar manualmente.',
+                SETTLEMENT_ERROR: 'Erro ao processar acerto. Tente novamente.',
+                ALL_SETTLED: 'Tudo acertado!',
+                NOTHING_TO_SETTLE: 'Nada para acertar!'
             },
+
+
 
             // LocalStorage
             STORAGE_KEY: 'expenseInputData',
@@ -531,8 +538,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             // Handle processing errors with fallback UI
             handleProcessingError(error, fallbackHTML = null) {
                 console.error('Processing Error:', error);
-                const resultsDiv = document.getElementById('results');
-                resultsDiv.innerHTML = fallbackHTML || generateNoDataHTML(CONSTANTS.MESSAGES.PROCESSING_ERROR);
+                const expensesDiv = document.getElementById('expenses-results');
+                const settlementsDiv = document.getElementById('settlements-results');
+                expensesDiv.innerHTML = '';
+                settlementsDiv.innerHTML = '';
                 setButtonVisibility(false);
                 resetGlobalState();
             },
@@ -562,21 +571,20 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
         // Utility function to generate person summary HTML
         function generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay) {
-            const template = document.getElementById('person-summary-template');
+            const template = document.getElementById('expenses-template');
             const clone = template.content.cloneNode(true);
 
-            const partsText = parts > 1 ? ` (${parts})` : '';
             const animationClass = shouldAnimate ? 'slide-in' : '';
 
-            const wrapper = clone.querySelector('.person-summary');
-            wrapper.className = `person-summary ${animationClass}`;
+            const wrapper = clone.querySelector('.summary');
+            wrapper.className = `summary expenses-summary ${animationClass}`;
 
             if (shouldAnimate) {
                 wrapper.style.animationDelay = `${animationDelay}ms`;
             }
 
-            clone.querySelector('.person-name').textContent = `${escapeHtml(displayName)}${partsText}`;
-            clone.querySelector('.person-total').textContent = formatNumber(fairShare);
+            clone.querySelector('.label').textContent = escapeHtml(formatPersonWithParts(displayName, parts));
+            clone.querySelector('.total').textContent = formatNumber(fairShare);
 
             // Create a temporary div to get the outerHTML
             const tempDiv = document.createElement('div');
@@ -596,19 +604,27 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
             const animationClass = shouldAnimate ? 'slide-in' : '';
 
-            const wrapper = clone.querySelector('.settlement-wrapper');
-            wrapper.className = `settlement-wrapper ${animationClass}`;
+            const wrapper = clone.querySelector('.settlements-summary');
+            wrapper.className = `summary settlements-summary ${animationClass}`;
             wrapper.dataset.settlementIndex = index;
 
             if (shouldAnimate) {
                 wrapper.style.animationDelay = `${animationDelay}ms`;
             }
 
-            clone.querySelector('.settlement-text').textContent = `${escapeHtml(fromName)} deve ${formatNumber(settlement.amount)} para ${escapeHtml(toName)}`;
+            clone.querySelector('.label').textContent = formatTemplate(
+                CONSTANTS.MESSAGES.OWES_TEMPLATE,
+                {
+                    fromName: escapeHtml(fromName),
+                    amount: formatNumber(settlement.amount),
+                    toName: escapeHtml(toName)
+                }
+            );
 
             // Add inline onclick handler to the settle button
             const settleButton = clone.querySelector('.settle-button');
             settleButton.setAttribute('onclick', `settlePayment(${index})`);
+            settleButton.setAttribute('onmousedown', 'event.preventDefault()');
 
             // Create a temporary div to get the outerHTML
             const tempDiv = document.createElement('div');
@@ -617,17 +633,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         }
 
         // Utility function to generate no-data message HTML using template
-        function generateNoDataHTML(message) {
-            const template = document.getElementById('no-data-template');
-            const clone = template.content.cloneNode(true);
 
-            clone.querySelector('.no-data').textContent = message;
-
-            // Create a temporary div to get the outerHTML
-            const tempDiv = document.createElement('div');
-            tempDiv.appendChild(clone);
-            return tempDiv.innerHTML;
-        }
 
         // Utility function to generate validation warning HTML using template
         function generateValidationWarningHTML(errorMessage) {
@@ -669,32 +675,46 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             return matches.length === 1 ? matches[0] : null;
         }
 
-        function parseSharedExpense(expenseLine, allNames, personData) {
-            // Look for pattern: amount description - person1, person2, person3
-            const sharedMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
+        function parseTransaction(expenseLine, allNames, personData) {
+            // Look for pattern: amount description - person1, person2, person3 (or single person for settlements)
+            const transactionMatch = expenseLine.match(/^(-?\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
 
-            if (sharedMatch) {
-                const amount = parseNumber(sharedMatch[1]);
-                const description = sharedMatch[2].trim();
-                const peopleStr = sharedMatch[3].trim();
+            if (transactionMatch) {
+                const amount = parseNumber(transactionMatch[1]);
+                const description = transactionMatch[2].trim();
+                const peopleStr = transactionMatch[3].trim();
 
-                // Parse the people list
-                const peopleNames = peopleStr.split(',').map(p => p.trim());
-                const resolvedPeople = [];
-
-                for (const personRef of peopleNames) {
-                    const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
-                    if (resolvedPerson) {
-                        resolvedPeople.push(resolvedPerson);
+                if (amount < 0) {
+                    // Negative amount: settlement to a single person
+                    const resolvedPerson = findPersonByNameOrInitial(peopleStr, allNames, personData);
+                    if (resolvedPerson && !isNaN(amount)) {
+                        return {
+                            type: CONSTANTS.TRANSACTION_TYPES.SETTLEMENT,
+                            amount: Math.abs(amount),
+                            description: description,
+                            settleTo: resolvedPerson
+                        };
                     }
-                }
+                } else {
+                    // Positive amount: expense
+                    const peopleNames = peopleStr.split(',').map(p => p.trim());
+                    const resolvedPeople = [];
 
-                if (!isNaN(amount) && amount >= 0 && resolvedPeople.length > 0) {
-                    return {
-                        amount: amount,
-                        description: description,
-                        sharedWith: resolvedPeople
-                    };
+                    for (const personRef of peopleNames) {
+                        const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
+                        if (resolvedPerson) {
+                            resolvedPeople.push(resolvedPerson);
+                        }
+                    }
+
+                    if (!isNaN(amount) && amount >= 0 && resolvedPeople.length > 0) {
+                        return {
+                            type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
+                            amount: amount,
+                            description: description,
+                            sharedWith: resolvedPeople
+                        };
+                    }
                 }
             }
 
@@ -705,9 +725,15 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             try {
                 numStr = numStr.trim();
 
+                // Check for negative sign
+                const isNegative = numStr.startsWith('-');
+                if (isNegative) {
+                    numStr = numStr.substring(1).trim();
+                }
+
                 // Handle simple integers
                 if (/^\d+$/.test(numStr)) {
-                    return parseFloat(numStr);
+                    return isNegative ? -parseFloat(numStr) : parseFloat(numStr);
                 }
 
                 // Remove any non-digit, non-comma, non-dot characters
@@ -719,7 +745,8 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
                 // No separators
                 if (lastDot === -1 && lastComma === -1) {
-                    return parseFloat(cleaned);
+                    const result = parseFloat(cleaned);
+                    return isNegative ? -result : result;
                 }
 
                 // Only dots or only commas
@@ -728,11 +755,13 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     const parts = cleaned.split('.');
                     const lastPart = parts[parts.length - 1];
                     if (lastPart.length <= 2 && parts.length >= 2) {
-                        // Likely decimal: 123.45 or 1,234.56
-                        return parseFloat(cleaned);
+                        // Likely decimal: 1.234.56 -> 1234.56
+                        const result = parseFloat(parts.slice(0, -1).join('') + '.' + lastPart);
+                        return isNegative ? -result : result;
                     } else {
                         // Likely thousands: 1.234 -> 1234
-                        return parseFloat(cleaned.replace(/\./g, ''));
+                        const result = parseFloat(cleaned.replace(/\./g, ''));
+                        return isNegative ? -result : result;
                     }
                 }
 
@@ -742,10 +771,12 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     const lastPart = parts[parts.length - 1];
                     if (lastPart.length <= 2 && parts.length >= 2) {
                         // Likely decimal: 123,45 or 1.234,56
-                        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                        const result = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                        return isNegative ? -result : result;
                     } else {
                         // Likely thousands: 1,234 -> 1234
-                        return parseFloat(cleaned.replace(/,/g, ''));
+                        const result = parseFloat(cleaned.replace(/,/g, ''));
+                        return isNegative ? -result : result;
                     }
                 }
 
@@ -754,13 +785,15 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     // Dot comes last: assume US format (1,234.56)
                     const afterDot = cleaned.substring(lastDot + 1);
                     if (afterDot.length <= 2) {
-                        return parseFloat(cleaned.replace(/,/g, ''));
+                        const result = parseFloat(cleaned.replace(/,/g, ''));
+                        return isNegative ? -result : result;
                     }
                 } else {
                     // Comma comes last: assume European format (1.234,56)
                     const afterComma = cleaned.substring(lastComma + 1);
                     if (afterComma.length <= 2) {
-                        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                        const result = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                        return isNegative ? -result : result;
                     }
                 }
 
@@ -774,12 +807,13 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     if (afterLast.length <= 2) {
                         // Treat as decimal
                         const cleanBefore = beforeLast.replace(/[.,]/g, '');
-                        return parseFloat(cleanBefore + '.' + afterLast);
+                        const result = parseFloat(cleanBefore + '.' + afterLast);
+                        return isNegative ? -result : result;
                     }
                 }
 
-                return parseFloat(cleaned.replace(/[.,]/g, ''));
-
+                const result = parseFloat(cleaned.replace(/[.,]/g, ''));
+                return isNegative ? -result : result;
             } catch (error) {
                 console.error('Error parsing number:', numStr, error);
                 return NaN;
@@ -788,6 +822,11 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
         function formatNumber(amount) {
             try {
+                // Prevent negative zero display
+                if (amount === 0 || Math.abs(amount) < 0.005) {
+                    amount = 0;
+                }
+
                 // Use browser's locale for number formatting
                 const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
                 return amount.toLocaleString(locale, {
@@ -797,6 +836,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             } catch (error) {
                 console.error('Error formatting number:', error);
                 // Fallback to fixed decimal if locale formatting fails
+                // Also handle negative zero in fallback
+                if (amount === 0 || Math.abs(amount) < 0.005) {
+                    amount = 0;
+                }
                 return amount.toFixed(2);
             }
         }
@@ -810,6 +853,32 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             const div = document.createElement('div');
             div.textContent = String(text);
             return div.innerHTML;
+        }
+
+        // Format template strings with placeholder replacements
+        // Supports placeholders like {name}, {amount}, etc.
+        function formatTemplate(template, replacements) {
+            if (!template || typeof template !== 'string') {
+                return '';
+            }
+
+            let result = template;
+            for (const [key, value] of Object.entries(replacements || {})) {
+                const placeholder = `{${key}}`;
+                result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), String(value || ''));
+            }
+            return result;
+        }
+
+        // Helper function to format person name with parts
+        function formatPersonWithParts(displayName, parts) {
+            if (parts > 1) {
+                return formatTemplate(CONSTANTS.MESSAGES.PERSON_WITH_PARTS_TEMPLATE, {
+                    displayName: displayName,
+                    parts: parts
+                });
+            }
+            return displayName;
         }
 
         function validateExpenses(text) {
@@ -847,7 +916,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 }
             }
 
-            // Second pass: check for ambiguous references in shared expenses
+            // Second pass: check for ambiguous references in expenses
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 if (line === '') continue;
@@ -881,13 +950,19 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                             warnings.push({
                                 line: i + 1,
                                 text: line,
-                                error: `"${personRef}" é ambíguo - pode se referir a: ${matchingNames}`
+                                error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
+                                    personRef: personRef,
+                                    matchingNames: matchingNames
+                                })
                             });
                         } else if (allMatches.length === 0) {
                             warnings.push({
                                 line: i + 1,
                                 text: line,
-                                error: `"${personRef}" não corresponde a nenhuma pessoa listada`
+                                error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
+                                    personRef: personRef,
+                                    errorMessage: CONSTANTS.MESSAGES.PERSON_NOT_FOUND
+                                })
                             });
                         }
                     }
@@ -901,7 +976,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             try {
                 const lines = text.split('\n').map(line => line.trim());
                 const people = {};
-                const sharedExpenses = [];
+                const transactions = [];
                 let currentPerson = null;
 
                 // Helper function to extract name and parts from a person string
@@ -941,8 +1016,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 for (const line of lines) {
                     if (line === '') continue;
 
-                    const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
-                    if (!expenseMatch && line.length > 0) {
+                    const expenseMatch = line.match(/^(-?\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+                    const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
+
+                    if (!expenseMatch && startsWithLetter && line.length > 0) {
                         const personInfo = parsePersonName(line);
                         allNames.push(line);
                         personData[line] = personInfo;
@@ -954,98 +1031,109 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     people[name] = {
                         expenses: [],
                         total: 0,
-                        sharedExpenses: [],
                         displayName: personData[name].displayName,
                         parts: personData[name].parts
                     };
-
                 });
 
-                // Second pass: process expenses
+                // Second pass: process transactions
                 for (const line of lines) {
                     if (line === '') {
                         currentPerson = null;
                         continue;
                     }
 
-                    // Enhanced regex to capture numbers with various formats
-                    const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+                    // Enhanced regex to capture numbers with various formats, including negative numbers
+                    const expenseMatch = line.match(/^(-?\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
 
                     if (expenseMatch && currentPerson) {
-                        // Parse shared expense or default to all people
-                        const sharedExpense = parseSharedExpense(line, allNames, personData);
+                        // Parse transaction (expense or settlement)
+                        const parsedTransaction = parseTransaction(line, allNames, personData);
                         const amount = parseNumber(expenseMatch[1]);
                         const description = line.substring(expenseMatch[0].length).trim();
 
-                        if (!isNaN(amount) && amount >= 0 && allNames.length > 0) {
-                            let finalSharedExpense;
+                        if (!isNaN(amount) && allNames.length > 0) {
+                            let finalTransaction;
 
-                            if (sharedExpense) {
-                                // Use specific shared expense
-                                finalSharedExpense = {
-                                    ...sharedExpense,
+                            if (parsedTransaction) {
+                                // Use parsed transaction details
+                                finalTransaction = {
+                                    ...parsedTransaction,
                                     paidBy: currentPerson
                                 };
-                            } else {
-                                // Default to shared by all people
-                                finalSharedExpense = {
+                            } else if (amount >= 0) {
+                                // Default positive amounts to be split among all people
+                                finalTransaction = {
+                                    type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
                                     amount: amount,
                                     description: description,
                                     sharedWith: allNames,
                                     paidBy: currentPerson
                                 };
+                            } else {
+                                // Negative amount without specific recipient - treat as simple settlement
+                                finalTransaction = {
+                                    type: CONSTANTS.TRANSACTION_TYPES.SETTLEMENT,
+                                    amount: Math.abs(amount),
+                                    description: description,
+                                    paidBy: currentPerson
+                                };
                             }
 
-                            sharedExpenses.push(finalSharedExpense);
+                            transactions.push(finalTransaction);
 
-                            // Add the full amount to the person who paid
+                            // Add to person's expenses list
                             people[currentPerson].expenses.push({
                                 amount: amount,
-                                description: sharedExpense ? `${finalSharedExpense.description} - ${finalSharedExpense.sharedWith.join(', ')}` : description
+                                description: finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE && finalTransaction.sharedWith
+                                    ? formatTemplate(CONSTANTS.MESSAGES.EXPENSE_WITH_PARTICIPANTS_TEMPLATE, {
+                                        description: finalTransaction.description,
+                                        participants: finalTransaction.sharedWith.join(', ')
+                                    })
+                                    : finalTransaction.description,
+                                type: finalTransaction.type
                             });
                             people[currentPerson].total += amount;
-
-                            // Track shared expenses for each participant (amounts will be calculated later)
-                            finalSharedExpense.sharedWith.forEach(person => {
-                                if (people[person]) {
-                                    people[person].sharedExpenses.push({
-                                        expense: finalSharedExpense,
-                                        description: finalSharedExpense.description,
-                                        paidBy: currentPerson
-                                    });
-                                }
-                            });
                         }
-                    } else if (!expenseMatch && line.length > 0) {
-                        // This is a person's name
-                        currentPerson = line;
-                        if (!people[currentPerson]) {
-                            people[currentPerson] = {
-                                expenses: [],
-                                total: 0,
-                                sharedExpenses: []
-                            };
+                    } else {
+                        // Check if this line could be a person's name (starts with letter)
+                        const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
+                        if (startsWithLetter && line.length > 0) {
+                            // This is a person's name
+                            currentPerson = line;
+                            if (!people[currentPerson]) {
+                                people[currentPerson] = {
+                                    expenses: [],
+                                    total: 0
+                                };
+                            }
                         }
+                        // If line doesn't match expense format and doesn't start with letter, ignore it
                     }
                 }
 
-                return { people, sharedExpenses };
+                return { people, transactions };
             } catch (error) {
                 console.error('Error parsing expenses:', error);
-                return { people: {}, sharedExpenses: [] };
+                return { people: {}, transactions: [] };
             }
         }
 
-        function calculateFairShares(names, sharedExpenses, peopleData) {
-            // Calculate total amounts each person owes across all shared expenses
+        function calculateFairShares(names, transactions, peopleData) {
+            // Calculate total amounts each person owes across all expenses
             // Now uses parts/shares for proportional division instead of equal splits
             const totalOwed = {};
             names.forEach(name => {
                 totalOwed[name] = 0;
             });
 
-            sharedExpenses.forEach(expense => {
-                const { amount, sharedWith } = expense;
+            // Filter for expenses only and process them
+            const expenseTransactions = transactions.filter(t =>
+                t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE
+            );
+
+            expenseTransactions.forEach(transaction => {
+                const { amount, sharedWith } = transaction;
                 const amountCents = Math.round(amount * 100);
 
                 // Calculate total parts for this expense
@@ -1053,8 +1141,6 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     const parts = peopleData[person] ? peopleData[person].parts : 1;
                     return sum + parts;
                 }, 0);
-
-
 
                 // Distribute the expense based on parts
                 let distributedCents = 0;
@@ -1099,29 +1185,40 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             return fairShares;
         }
 
-        function calculateSettlements(people, sharedExpenses) {
+        function calculateSettlements(people, transactions) {
             try {
                 const names = Object.keys(people);
                 if (names.length === 0) return [];
 
-                const fairShares = calculateFairShares(names, sharedExpenses, people);
+                const fairShares = calculateFairShares(names, transactions, people);
 
-                // Convert back to dollars and calculate balances
+                // Calculate balances accounting for existing settlements
                 const balances = {};
                 names.forEach(name => {
                     balances[name] = 0;
                 });
 
-                // Calculate balances: what each person paid minus what they owe
+                // Start with what each person paid for expenses minus fair share
                 names.forEach(name => {
-                    const totalPaid = people[name].total;
+                    // Only count expenses toward what they paid
+                    const expensesPaid = people[name].expenses
+                        .filter(expense => expense.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
+                        .reduce((sum, expense) => sum + expense.amount, 0);
+
                     const totalShouldPay = fairShares[name];
-                    balances[name] = totalPaid - totalShouldPay;
+                    balances[name] = expensesPaid - totalShouldPay;
                 });
 
+                // Apply existing settlements to adjust balances
+                transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT).forEach(settlement => {
+                    if (settlement.settleTo) {
+                        // Settlement from paidBy to settleTo
+                        balances[settlement.paidBy] += settlement.amount; // Payer owes less
+                        balances[settlement.settleTo] -= settlement.amount; // Recipient is owed less
+                    }
+                });
 
-
-                // Calculate settlements
+                // Calculate remaining settlements needed
                 const settlements = [];
                 const debtors = names.filter(name => balances[name] < -0.01).map(name => ({
                     name,
@@ -1168,49 +1265,67 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 const names = Object.keys(currentPeopleData);
                 if (names.length === 0) return '';
 
-                const totalExpenses = names.reduce((sum, name) => {
-                    return sum + (currentPeopleData[name] ? currentPeopleData[name].total || 0 : 0);
-                }, 0);
+                // Calculate total expenses from expense transactions only
+                const totalExpenses = currentTransactions
+                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
+                    .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+                // Calculate total settlements from settlement transactions only
+                const totalSettlements = currentTransactions
+                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT)
+                    .reduce((sum, transaction) => sum + transaction.amount, 0);
 
                 // Calculate fair shares using the helper function
-                const fairShares = calculateFairShares(names, currentSharedExpenses, currentPeopleData);
+                const fairShares = calculateFairShares(names, currentTransactions, currentPeopleData);
 
                 let text = '';
 
                 // Use the already formatted input text instead of regenerating it
                 const formattedInputText = formatInputText();
                 if (formattedInputText) {
-                    text += '*GASTOS*\n';
+                    text += CONSTANTS.MESSAGES.TRANSACTIONS_SECTION + '\n';
                     text += formattedInputText + '\n';
                 }
 
                 // Add summary
-                text += '\n*DIVISÃO*\n';
+                if (totalExpenses === 0) {
+                    text += '\n' + CONSTANTS.MESSAGES.EXPENSES_SECTION + '\n';
+                } else {
+                    text += '\n' + CONSTANTS.MESSAGES.EXPENSES_SECTION + ' = ' + formatNumber(totalExpenses) + '\n';
+                }
                 names.forEach(name => {
                     const personTotal = currentPeopleData[name] ? currentPeopleData[name].total || 0 : 0;
                     const personShare = fairShares[name] || 0;
                     const person = currentPeopleData[name];
                     const displayName = person ? person.displayName : name;
                     const parts = person ? person.parts : 1;
-                    const partsText = parts > 1 ? ` (${parts})` : '';
-                    text += `${displayName}${partsText} = ${formatNumber(personShare)}\n`;
+                    text += `${formatPersonWithParts(displayName, parts)} = ${formatNumber(personShare)}\n`;
                 });
 
-                text += `Total = ${formatNumber(totalExpenses)}\n`;
-
                 // Add settlements
-                text += '\n*ACERTOS*\n';
+                if (totalSettlements === 0) {
+                    text += '\n' + CONSTANTS.MESSAGES.SETTLEMENTS_SECTION + '\n';
+                } else {
+                    text += '\n' + CONSTANTS.MESSAGES.SETTLEMENTS_SECTION + ' = ' + formatNumber(totalSettlements) + '\n';
+                }
                 if (totalExpenses === 0) {
-                    text += 'Nenhum gasto para acertar\n';
-                } else if (currentSettlements.length === 0) {
-                    text += 'Todos estão quites!\n';
+                  text += CONSTANTS.MESSAGES.NOTHING_TO_SETTLE + '\n';
+                } else if ( currentSettlements.length === 0) {
+                    text += CONSTANTS.MESSAGES.ALL_SETTLED + '\n';
                 } else {
                     currentSettlements.forEach(settlement => {
                         const fromPerson = currentPeopleData[settlement.from];
                         const toPerson = currentPeopleData[settlement.to];
                         const fromName = fromPerson ? fromPerson.displayName : settlement.from;
                         const toName = toPerson ? toPerson.displayName : settlement.to;
-                        text += `${fromName} deve ${formatNumber(settlement.amount)} para ${toName}\n`;
+                        text += formatTemplate(
+                            CONSTANTS.MESSAGES.OWES_TEMPLATE,
+                            {
+                                fromName: fromName,
+                                amount: formatNumber(settlement.amount),
+                                toName: toName
+                            }
+                        ) + '\n';
                     });
                 }
 
@@ -1243,6 +1358,11 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
         function handleBlur() {
             try {
+                // Skip blur handling if we're in the middle of settling a payment
+                if (isSettling) {
+                    return;
+                }
+
                 // Cancel any pending debounced update
                 clearTimeout(debounceTimer);
 
@@ -1264,52 +1384,72 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
                 let formattedText = '';
 
-                // Calculate maximum width for amounts across all expenses using shared expenses
+                // Calculate maximum width for amounts across all expenses using transactions
                 let maxWidth = 0;
-                currentSharedExpenses.forEach(sharedExpense => {
-                    const width = formatNumber(sharedExpense.amount).length;
+                currentTransactions.forEach(transaction => {
+                    const width = formatNumber(transaction.amount).length;
                     if (width > maxWidth) maxWidth = width;
                 });
 
                 // Ensure minimum width for proper alignment
                 if (maxWidth === 0) maxWidth = 8;
 
-                // Format expenses by person using shared expense data to reconstruct original format
+                // Format expenses by person using transaction data to reconstruct original format
                 names.forEach(name => {
                     const person = currentPeopleData[name];
                     const displayName = person ? person.displayName : name;
                     const parts = person ? person.parts : 1;
-                    const partsText = parts > 1 ? ` (${parts})` : '';
-                    formattedText += `${displayName}${partsText}\n`;
+                    formattedText += `${formatPersonWithParts(displayName, parts)}\n`;
 
                     if (person && person.expenses.length > 0) {
-                        // Use shared expenses to reconstruct the original format
-                        const processedExpenses = new Set();
+                        // Use transactions to reconstruct the original format
+                        const processedTransactions = new Set();
 
-                        currentSharedExpenses.forEach(sharedExpense => {
-                            if (sharedExpense.paidBy === name && !processedExpenses.has(sharedExpense)) {
-                                processedExpenses.add(sharedExpense);
+                        currentTransactions.forEach(transaction => {
+                            if (transaction.paidBy === name && !processedTransactions.has(transaction)) {
+                                processedTransactions.add(transaction);
 
-                                const formattedAmount = formatNumber(sharedExpense.amount);
-                                const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
+                                let formattedAmount, description = transaction.description || '';
 
-                                let description = sharedExpense.description || '';
+                                if (transaction.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT) {
+                                    // Settlement: negative amount with recipient
+                                    formattedAmount = formatNumber(-transaction.amount);
+                                    if (transaction.settleTo) {
+                                        const recipientData = currentPeopleData[transaction.settleTo];
+                                        const recipientName = recipientData ? recipientData.displayName : transaction.settleTo;
+                                        description = description ? `${description} - ${recipientName}` : `- ${recipientName}`;
+                                    }
+                                } else {
+                                    // Expense: positive amount
+                                    formattedAmount = formatNumber(transaction.amount);
 
-                                // Check if this expense is shared with specific people (not all)
-                                const allNames = Object.keys(currentPeopleData);
-                                const isSharedWithAll = sharedExpense.sharedWith.length === allNames.length && sharedExpense.sharedWith.every(p => allNames.includes(p));
+                                    // Check if this expense is split with specific people (not all)
+                                    const allNames = Object.keys(currentPeopleData);
+                                    const isSharedWithAll = transaction.sharedWith && transaction.sharedWith.length === allNames.length && transaction.sharedWith.every(p => allNames.includes(p));
 
-                                // Always add participant names unless shared with all people
-                                if (!isSharedWithAll && sharedExpense.sharedWith.length > 0) {
-                                    // Add shared participants to description
-                                    const participants = sharedExpense.sharedWith.map(p => {
-                                        const participantData = currentPeopleData[p];
-                                        return participantData ? participantData.displayName : p;
-                                    }).join(', ');
-                                    description = description ? `${description} - ${participants}` : `- ${participants}`;
+                                    // Always add participant names unless split among all people
+                                    if (!isSharedWithAll && transaction.sharedWith && transaction.sharedWith.length > 0) {
+                                        // Add participants to description
+                                        const participants = transaction.sharedWith.map(p => {
+                                            const participantData = currentPeopleData[p];
+                                            return participantData ? participantData.displayName : p;
+                                        }).join(', ');
+                                        description = description ? `${description} - ${participants}` : `- ${participants}`;
+                                    }
                                 }
 
+                                const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
                                 const fullDescription = description ? ` ${description}` : '';
+                                formattedText += `${paddedAmount}${fullDescription}\n`;
+                            }
+                        });
+
+                        // Also add any individual expenses that aren't part of transactions (like manually entered settlements)
+                        person.expenses.forEach(expense => {
+                            if (expense.isSettlement) {
+                                const formattedAmount = formatNumber(expense.amount);
+                                const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
+                                const fullDescription = expense.description ? ` ${expense.description}` : '';
                                 formattedText += `${paddedAmount}${fullDescription}\n`;
                             }
                         });
@@ -1371,11 +1511,11 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 if (successful) {
                     showCopySuccess();
                 } else {
-                    alert('Não foi possível copiar automaticamente. Selecione e copie manualmente.');
+                    alert(CONSTANTS.MESSAGES.COPY_MANUAL_SELECT);
                 }
             } catch (err) {
                 console.error('Fallback copy failed:', err);
-                alert('Erro ao copiar. Tente selecionar e copiar manualmente.');
+                alert(CONSTANTS.MESSAGES.COPY_MANUAL_FALLBACK);
             }
         }
 
@@ -1412,7 +1552,8 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         function updateResults() {
             try {
                 const input = document.getElementById('expenseInput').value;
-                const resultsDiv = document.getElementById('results');
+                const expensesDiv = document.getElementById('expenses-results');
+                const settlementsDiv = document.getElementById('settlements-results');
                 const copyButton = document.getElementById('copyButton');
                 const resetButton = document.getElementById('resetButton');
 
@@ -1420,7 +1561,8 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 const warnings = validateExpenses(input);
 
                 if (!input.trim()) {
-                    resultsDiv.innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.NO_DATA_INITIAL);
+                    expensesDiv.innerHTML = '';
+                    settlementsDiv.innerHTML = '';
                     setButtonVisibility(false);
                     displayValidationWarnings([]);
                     resetGlobalState();
@@ -1432,17 +1574,19 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
                 // If there are critical validation errors, don't proceed with parsing
                 if (warnings.length > 0) {
-                    resultsDiv.innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.CHECK_ERRORS);
+                    expensesDiv.innerHTML = '';
+                    settlementsDiv.innerHTML = '';
                     setButtonVisibility(false);
                     resetGlobalState();
                     return;
                 }
 
-                const { people, sharedExpenses } = parseExpenses(input);
+                const { people, transactions } = parseExpenses(input);
                 const names = Object.keys(people);
 
                 if (names.length === 0) {
-                    resultsDiv.innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.NO_NAMES_FOUND);
+                    expensesDiv.innerHTML = '';
+                    settlementsDiv.innerHTML = '';
                     setButtonVisibility(false);
                     resetGlobalState();
                     return;
@@ -1450,15 +1594,21 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
                 // Store current data for copying
                 currentPeopleData = people;
-                currentSharedExpenses = sharedExpenses;
-                currentSettlements = calculateSettlements(people, sharedExpenses);
+                currentTransactions = transactions;
+                currentSettlements = calculateSettlements(people, transactions);
 
-                const totalExpenses = names.reduce((sum, name) => {
-                    return sum + (people[name] ? people[name].total || 0 : 0);
-                }, 0);
+                // Calculate total expenses from expense transactions only
+                const totalExpenses = transactions
+                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
+                    .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+                // Calculate total settlements from settlement transactions only
+                const totalSettlements = transactions
+                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT)
+                    .reduce((sum, transaction) => sum + transaction.amount, 0);
 
                 // Calculate fair share amounts using the helper function
-                const fairShares = calculateFairShares(names, sharedExpenses, people);
+                const fairShares = calculateFairShares(names, transactions, people);
 
                 // Create keys for comparison
                 const newPeopleNames = names.slice();
@@ -1469,90 +1619,79 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 const removedSettlementKeys = previousSettlementKeys.filter(key => !newSettlementKeys.includes(key));
 
                 // If items are being removed, animate them out first
-                if (removedPeopleNames.length > 0 || removedSettlementKeys.length > 0) {
-                    // Add slide-out animation to removed items
-                    removedPeopleNames.forEach(name => {
-                        const personElements = resultsDiv.querySelectorAll('.person-summary');
-                        personElements.forEach(element => {
-                            const nameElement = element.querySelector('.person-name');
-                            if (nameElement && nameElement.textContent.includes(name)) {
-                                element.classList.add('slide-out');
-                            }
-                        });
-                    });
-
-                    removedSettlementKeys.forEach(key => {
-                        const [fromTo] = key.split('-');
-                        const settlementElements = resultsDiv.querySelectorAll('.settlement-wrapper');
-                        settlementElements.forEach(element => {
-                            const textElement = element.querySelector('.settlement-text');
-                            if (textElement && textElement.textContent.includes(fromTo)) {
-                                element.classList.add('slide-out');
-                            }
-                        });
-                    });
-
-                    // Wait for slide-out animation to complete, then update
-                    setTimeout(() => {
-                        proceedWithUpdate();
-                    }, 200);
-                    return;
-                }
-
                 proceedWithUpdate();
 
                 function proceedWithUpdate() {
                     // Determine if we should animate based on changes
-                    const newPeopleCount = names.length + 1; // +1 for total row
+                    const newPeopleCount = names.length + 2; // +2 for gastos and acertos rows
                     const newSettlementCount = currentSettlements.length;
                     const shouldAnimateNewItems = newPeopleCount > previousPeopleCount || newSettlementCount > previousSettlementCount || previousPeopleCount === 0;
                     const isFirstLoad = previousPeopleCount === 0;
 
-                    let html = '';
+                    let expensesHtml = '';
+                    let settlementsHtml = '';
                     let animationDelay = 0;
 
-                    // Show individual totals with fair shares
+                    // EXPENSES SECTION
+                    // Expenses total as header
+                    const totalShouldAnimate = isFirstLoad;
+                    const totalAnimationClass = totalShouldAnimate ? 'slide-in' : '';
+                    const totalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+
+                    expensesHtml += `
+                        <div class="summary expenses-summary expenses-total ${totalAnimationClass}" ${totalAnimationStyle}>
+                            <span class="label">${CONSTANTS.MESSAGES.EXPENSES}</span>
+                            <span class="total">${formatNumber(totalExpenses)}</span>
+                        </div>`;
+
+                    if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
+
+                    // Show individual fair share expenses (excluding settlements)
                     names.forEach((name, index) => {
-                        const personTotal = people[name] ? people[name].total || 0 : 0;
                         const fairShare = fairShares[name] || 0;
                         const displayName = people[name] ? people[name].displayName : name;
                         const parts = people[name] ? people[name].parts : 1;
 
                         const shouldAnimate = shouldAnimateNewItems && index >= previousPeopleCount - 1;
-                        html += generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay);
+                        expensesHtml += generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay);
                         if (shouldAnimate) animationDelay += CONSTANTS.PERSON_ANIMATION_DELAY;
                     });
 
-                    // Total row - only animate on first load
-                    const totalShouldAnimate = isFirstLoad;
-                    const totalAnimationClass = totalShouldAnimate ? 'slide-in' : '';
-                    const totalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+                    // SETTLEMENTS SECTION
+                    // Settlement total - only show if there are settlements
+                    if (totalSettlements !== 0 || currentSettlements.length > 0) {
+                        const settlementTotalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
 
-                    html += `
-                        <div class="person-summary total-row ${totalAnimationClass}" ${totalAnimationStyle}>
-                            <span class="person-name">Total</span>
-                            <span class="person-total">${formatNumber(totalExpenses)}</span>
-                        </div>`;
+                        settlementsHtml += `
+                            <div class="summary settlements-summary settlements-total ${totalAnimationClass}" ${settlementTotalAnimationStyle}>
+                                <span class="label">${CONSTANTS.MESSAGES.SETTLEMENTS}</span>
+                                <span class="total">${formatNumber(Math.abs(totalSettlements))}</span>
+                            </div>`;
 
-                    if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY; // Extra delay before settlements
+                        if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
 
-                    // Show settlements
-                    if (totalExpenses === 0) {
-                        html += generateNoDataHTML(CONSTANTS.MESSAGES.NO_EXPENSES_TO_SETTLE);
-                    } else if (currentSettlements.length === 0) {
-                        html += generateNoDataHTML(CONSTANTS.MESSAGES.ALL_SETTLED);
-                    } else {
-                        currentSettlements.forEach((settlement, index) => {
-                            const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
-                            html += generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people);
-                            if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
-                        });
+                        // Show settlements
+                        if (totalExpenses !== 0 && currentSettlements.length > 0) {
+                            currentSettlements.forEach((settlement, index) => {
+                                const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
+                                settlementsHtml += generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people);
+                                if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
+                            });
+                        } else if (totalSettlements !== 0 && currentSettlements.length === 0) {
+                            // Show "all settled up" message when settlements total is not zero but no current settlements
+                            const allSettledAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+                            settlementsHtml += `
+                                <div class="summary settlements-summary all-settled-up ${totalAnimationClass}" ${allSettledAnimationStyle}>
+                                    <span class="label">${CONSTANTS.MESSAGES.ALL_SETTLED}</span>
+                                </div>`;
+                        }
                     }
 
-                    resultsDiv.innerHTML = html;
+                    expensesDiv.innerHTML = expensesHtml;
+                    settlementsDiv.innerHTML = settlementsHtml;
 
                     // Update tracking variables
-                    previousResultsHTML = html;
+                    previousResultsHTML = expensesHtml + settlementsHtml;
                     previousPeopleCount = newPeopleCount;
                     previousSettlementCount = newSettlementCount;
                     previousPeopleNames = newPeopleNames.slice();
@@ -1569,14 +1708,28 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
         function settlePayment(settlementIndex) {
             try {
+                // Set flag to prevent blur interference
+                isSettling = true;
+
                 const settlement = currentSettlements[settlementIndex];
-                if (!settlement) return;
+                if (!settlement) {
+                    isSettling = false;
+                    return;
+                }
 
                 const textarea = document.getElementById('expenseInput');
                 const currentText = textarea.value;
 
-                // Create the payment line in the format: "amount Acerto - recipient"
-                const paymentLine = `${formatNumber(settlement.amount)} Acerto - ${settlement.to}`;
+                // Create the payment line in the format: "-amount Settlement to recipient"
+                // Use display name consistently like in the settlement display
+                const toPerson = currentPeopleData[settlement.to];
+                const toDisplayName = toPerson ? toPerson.displayName : settlement.to;
+                const formattedAmount = formatNumber(Number(settlement.amount));
+                const settlementLine = formatTemplate(CONSTANTS.MESSAGES.PAYMENT_LINE_TEMPLATE, {
+                    amount: String(formattedAmount),
+                    settlementWord: CONSTANTS.MESSAGES.SETTLEMENT_WORD,
+                    toName: String(toDisplayName)
+                });
 
                 // Find the payer's section and add the payment line
                 const lines = currentText.split('\n');
@@ -1608,7 +1761,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                         }
 
                         // Check if this line is a person name (not an expense)
-                        const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+                        const expenseMatch = line.match(/^(-?\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
                         if (!expenseMatch && line.length > 0) {
                             // This is a person name, insert before this line (or before the empty line if found)
                             if (!foundEmptyLine) {
@@ -1619,17 +1772,17 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     }
 
                     // Insert the payment line
-                    lines.splice(insertIndex, 0, paymentLine);
+                    lines.splice(insertIndex, 0, settlementLine);
 
                     // Update the textarea
                     textarea.value = lines.join('\n');
 
                     // Reparse the expenses to update data structures with the new settlement
-                    const { people, sharedExpenses } = parseExpenses(textarea.value);
+                    const { people, transactions } = parseExpenses(textarea.value);
 
-                    if (people && sharedExpenses) {
+                    if (people && transactions) {
                         currentPeopleData = people;
-                        currentSharedExpenses = sharedExpenses;
+                        currentTransactions = transactions;
 
                         // Now reformat the input text with updated data
                         applyFormattedTextToTextarea(false); // Don't save to storage here, we'll save below
@@ -1644,7 +1797,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                         settlementWrapper.classList.add(CONSTANTS.CSS_CLASSES.SETTLEMENT_SUCCESS);
 
                         // Replace the settlement text with "Acertado"
-                        const settlementText = settlementWrapper.querySelector('.settlement-text');
+                        const settlementText = settlementWrapper.querySelector('.label');
                         if (settlementText) {
                             settlementText.textContent = CONSTANTS.MESSAGES.SETTLED_TEXT;
                         }
@@ -1655,19 +1808,20 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                             button.style.display = 'none';
                         }
 
-                        // Animate the settlement removal
+                        // Remove the settlement after showing success state
                         setTimeout(() => {
-                            settlementWrapper.classList.add(CONSTANTS.CSS_CLASSES.SLIDE_OUT);
-
-                            // Remove the settlement after animation completes
-                            setTimeout(() => {
-                                updateResults();
-                            }, CONSTANTS.SLIDE_OUT_TIMEOUT);
+                            updateResults();
+                            isSettling = false;
                         }, CONSTANTS.SETTLEMENT_SUCCESS_TIMEOUT);
                     }
                 }
             } catch (error) {
-                ErrorHandler.handleUIError(error, 'Erro ao processar acerto. Tente novamente.');
+                ErrorHandler.handleUIError(error, CONSTANTS.MESSAGES.SETTLEMENT_ERROR);
+            } finally {
+                // Always reset the settling flag
+                setTimeout(() => {
+                    isSettling = false;
+                }, 100);
             }
         }
 
@@ -1697,7 +1851,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         try {
             updateResults();
         } catch (error) {
-            ErrorHandler.handleProcessingError(error, '<div class="no-data">Erro ao carregar a página. Por favor, recarregue.</div>');
+            ErrorHandler.handleProcessingError(error);
         }
         // localStorage functions
         function resetData() {
@@ -1705,24 +1859,18 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
 
             if (confirmReset) {
                 try {
-                    // Clear the textarea
-                    const textarea = document.getElementById('expenseInput');
-                    textarea.value = '';
-
-                    // Auto-expand textarea to reset height
-                    autoExpandTextarea(textarea);
-
-                    // Clear results
-                    document.getElementById('results').innerHTML = generateNoDataHTML(CONSTANTS.MESSAGES.NO_DATA_ADD_EXPENSES);
-
-                    // Hide buttons
                     setButtonVisibility(false);
 
                     // Clear localStorage
                     localStorage.removeItem(CONSTANTS.STORAGE_KEY);
 
-                    // Reset global variables
+                    const textarea = document.getElementById('expenseInput');
+                    textarea.value = '';
+                    autoExpandTextarea(textarea);
+
                     resetGlobalState();
+                    updateResults();
+
                 } catch (error) {
                     ErrorHandler.handleUIError(error, CONSTANTS.MESSAGES.RESET_ERROR);
                 }
@@ -1746,10 +1894,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     textarea.value = savedData;
 
                     // Parse and reformat the loaded data
-                    const { people, sharedExpenses } = parseExpenses(savedData);
-                    if (people && sharedExpenses) {
+                    const { people, transactions } = parseExpenses(savedData);
+                    if (people && transactions) {
                         currentPeopleData = people;
-                        currentSharedExpenses = sharedExpenses;
+                        currentTransactions = transactions;
 
                         applyFormattedTextToTextarea(false); // Don't save to storage during load
                     }
