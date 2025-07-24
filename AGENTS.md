@@ -4,8 +4,8 @@
 Splitwiser is a vanilla HTML/CSS/JavaScript PWA for expense splitting calculations. No build system, frameworks, or dependencies.
 
 ## Development Commands
-- **Start dev server**: `./server.sh` or `python3 -m http.server 3000`
-- **No build/lint/test commands** - this is a simple static HTML app
+- **Dev server**: do NOT start the dev server, it will be started manually.
+- **No build/lint/test commands** - this is a simple static HTML app, do NOT run test commands.
 - **Testing**: Manual testing only - no automated test files needed
 - **Deploy**: Copy files to web server (static hosting)
 
