@@ -421,10 +421,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             const expensesDiv = document.getElementById('expenses-results');
             const settlementsDiv = document.getElementById('settlements-results');
             if (expensesDiv) {
-                expensesDiv.innerHTML = '';
+                expensesDiv.innerHTML = getEmptyExpensesHTML();
             }
             if (settlementsDiv) {
-                settlementsDiv.innerHTML = '';
+                settlementsDiv.innerHTML = getEmptySettlementsHTML();
             }
             return true;
         };
@@ -435,10 +435,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             const expensesDiv = document.getElementById('expenses-results');
             const settlementsDiv = document.getElementById('settlements-results');
             if (expensesDiv) {
-                expensesDiv.innerHTML = '';
+                expensesDiv.innerHTML = getEmptyExpensesHTML();
             }
             if (settlementsDiv) {
-                settlementsDiv.innerHTML = '';
+                settlementsDiv.innerHTML = getEmptySettlementsHTML();
             }
             event.preventDefault();
         });
@@ -515,7 +515,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     PERSON_NOT_FOUND: 'does not match any listed person',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" is ambiguous - could refer to: {matchingNames}',
                     PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
-                    DUPLICATE_NAME_TEMPLATE: 'Name "{currentName}" is duplicated with "{existingName}" on line {existingLine}',
+                    DUPLICATE_NAME_TEMPLATE: 'Name "{currentName}" is duplicated with "{existingName}"',
                     PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
                     EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
                     COPY_MANUAL_SELECT: 'Could not copy automatically. Please select and copy manually.',
@@ -530,12 +530,12 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
 
 David
-18.11 Toll (by default divided among everyone)
-1200.00 Hotel (can use dot or comma)
+18.11 Toll (by default split among all)
+1200.00 Hotel (can use period or comma)
 
-Ana 3 (group of three, will have larger share in division)
+Ana 3 (group of three, will have larger share in the split)
 45 Restaurant (no need to add cents)
-23 Lunch - David, Ana (divided only between David and Ana)
+23 Lunch - David, Ana (split only between David and Ana)
 
 Cristy
 50 (description optional)
@@ -557,7 +557,7 @@ Cristy
                     PERSON_NOT_FOUND: 'não corresponde a nenhuma pessoa listada',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" é ambíguo - pode se referir a: {matchingNames}',
                     PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
-                    DUPLICATE_NAME_TEMPLATE: 'Nome "{currentName}" está duplicado com "{existingName}" na linha {existingLine}',
+                    DUPLICATE_NAME_TEMPLATE: 'Nome "{currentName}" está duplicado com "{existingName}"',
                     PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
                     EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
                     COPY_MANUAL_SELECT: 'Não foi possível copiar automaticamente. Selecione e copie manualmente.',
@@ -599,7 +599,7 @@ Cristy
                     PERSON_NOT_FOUND: 'no corresponde a ninguna persona listada',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" es ambiguo - puede referirse a: {matchingNames}',
                     PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
-                    DUPLICATE_NAME_TEMPLATE: 'Nombre "{currentName}" está duplicado con "{existingName}" en línea {existingLine}',
+                    DUPLICATE_NAME_TEMPLATE: 'Nombre "{currentName}" está duplicado con "{existingName}"',
                     PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
                     EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
                     COPY_MANUAL_SELECT: 'No se pudo copiar automáticamente. Seleccione y copie manualmente.',
@@ -689,6 +689,13 @@ Cristy
             const settlementTemplate = document.getElementById('settlement-template');
             const settleText = settlementTemplate.content.querySelector('.settle-text');
             settleText.textContent = ' ' + CONSTANTS.getString('SETTLED_BUTTON');
+
+            // Initialize empty sections on page load
+            const expensesDiv = document.getElementById('expenses-results');
+            const settlementsDiv = document.getElementById('settlements-results');
+            
+            expensesDiv.innerHTML = getEmptyExpensesHTML();
+            settlementsDiv.innerHTML = getEmptySettlementsHTML();
         }
 
         // Centralized error handling utility
@@ -709,8 +716,11 @@ Cristy
                 console.error('Processing Error:', error);
                 const expensesDiv = document.getElementById('expenses-results');
                 const settlementsDiv = document.getElementById('settlements-results');
-                expensesDiv.innerHTML = '';
-                settlementsDiv.innerHTML = '';
+                
+                // Show empty sections instead of clearing completely
+                expensesDiv.innerHTML = getEmptyExpensesHTML();
+                settlementsDiv.innerHTML = getEmptySettlementsHTML();
+                
                 setButtonVisibility(false);
                 resetGlobalState();
             },
@@ -729,6 +739,22 @@ Cristy
         };
 
         // Utility function to manage button visibility
+        // Helper functions for generating empty section HTML
+        function getEmptyExpensesHTML() {
+            return `
+                <div class="summary expenses-summary expenses-total">
+                    <span class="label">${CONSTANTS.MESSAGES.COSTS}</span>
+                    <span class="total">${formatNumber(0)}</span>
+                </div>`;
+        }
+
+        function getEmptySettlementsHTML() {
+            return `
+                <div class="summary settlements-summary settlements-total">
+                    <span class="label">${CONSTANTS.MESSAGES.NOTHING_TO_SETTLE}</span>
+                </div>`;
+        }
+
         function setButtonVisibility(show) {
             const copyButton = document.getElementById('copyButton');
             const resetButton = document.getElementById('resetButton');
@@ -1117,16 +1143,14 @@ Cristy
                     if (seenDisplayNames.has(lowerDisplayName)) {
                         const existingLine = seenDisplayNames.get(lowerDisplayName);
                         warnings.push({
-                            line: i + 1,
                             text: line,
                             error: formatTemplate(CONSTANTS.MESSAGES.DUPLICATE_NAME_TEMPLATE, {
                                 currentName: displayName,
-                                existingName: existingLine.displayName,
-                                existingLine: existingLine.lineNumber
+                                existingName: existingLine.displayName
                             })
                         });
                     } else {
-                        seenDisplayNames.set(lowerDisplayName, { displayName, lineNumber: i + 1 });
+                        seenDisplayNames.set(lowerDisplayName, { displayName });
                     }
 
                     personData[line] = { displayName, originalName: line };
@@ -1147,7 +1171,6 @@ Cristy
                     if (validation.isAmbiguous) {
                         const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
                         warnings.push({
-                            line: i + 1,
                             text: line,
                             error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
                                 personRef: validation.personRef,
@@ -1156,7 +1179,6 @@ Cristy
                         });
                     } else if (validation.notFound) {
                         warnings.push({
-                            line: i + 1,
                             text: line,
                             error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
                                 personRef: validation.personRef,
@@ -1183,7 +1205,6 @@ Cristy
                         if (validation.isAmbiguous) {
                             const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
                             warnings.push({
-                                line: i + 1,
                                 text: line,
                                 error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
                                     personRef: validation.personRef,
@@ -1192,7 +1213,6 @@ Cristy
                             });
                         } else if (validation.notFound) {
                             warnings.push({
-                                line: i + 1,
                                 text: line,
                                 error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
                                     personRef: validation.personRef,
@@ -1878,36 +1898,30 @@ Cristy
                 const copyButton = document.getElementById('copyButton');
                 const resetButton = document.getElementById('resetButton');
 
-                // Validate input and show warnings
+                // Always display validation warnings
                 const warnings = validateExpenses(input);
-
-                if (!input.trim()) {
-                    expensesDiv.innerHTML = '';
-                    settlementsDiv.innerHTML = '';
-                    setButtonVisibility(false);
-                    displayValidationWarnings([]);
-                    resetGlobalState();
-                    return;
-                }
-
-                // Display validation warnings
                 displayValidationWarnings(warnings);
 
-                // If there are critical validation errors, don't proceed with parsing
+                // If there are critical validation errors, just show warnings and return
                 if (warnings.length > 0) {
-                    expensesDiv.innerHTML = '';
-                    settlementsDiv.innerHTML = '';
-                    setButtonVisibility(false);
-                    resetGlobalState();
                     return;
                 }
 
-                const { people, transactions } = parseExpenses(input);
-                const names = Object.keys(people);
+                // Handle empty input or no valid names - show empty sections
+                let people = {};
+                let transactions = [];
+                let names = [];
 
-                if (names.length === 0) {
-                    expensesDiv.innerHTML = '';
-                    settlementsDiv.innerHTML = '';
+                if (input.trim()) {
+                    const parsed = parseExpenses(input);
+                    people = parsed.people;
+                    transactions = parsed.transactions;
+                    names = Object.keys(people);
+                }
+
+                if (!input.trim() || names.length === 0) {
+                    expensesDiv.innerHTML = getEmptyExpensesHTML();
+                    settlementsDiv.innerHTML = getEmptySettlementsHTML();
                     setButtonVisibility(false);
                     resetGlobalState();
                     return;
@@ -1978,40 +1992,43 @@ Cristy
                     });
 
                     // SETTLEMENTS SECTION
-                    // Show settlements section if there are any settlements (active or completed)
-                    if (totalSettlements !== 0 || currentSettlements.length > 0) {
-                        const settlementTotalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
+                    // Always show settlements section
+                    const settlementTotalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
 
-                        // Dynamic title: "All settled!" if no active settlements, "Settlements" if there are active ones
-                        const sectionTitle = (totalExpenses !== 0 && currentSettlements.length === 0)
-                            ? CONSTANTS.MESSAGES.ALL_SETTLED
-                            : CONSTANTS.MESSAGES.SETTLEMENTS;
+                    // Dynamic title based on state
+                    let sectionTitle;
+                    if (totalExpenses === 0 && currentSettlements.length === 0) {
+                        sectionTitle = CONSTANTS.MESSAGES.NOTHING_TO_SETTLE;
+                    } else if (totalExpenses !== 0 && currentSettlements.length === 0) {
+                        sectionTitle = CONSTANTS.MESSAGES.ALL_SETTLED;
+                    } else {
+                        sectionTitle = CONSTANTS.MESSAGES.SETTLEMENTS;
+                    }
 
-                        settlementsHtml += `
-                            <div class="summary settlements-summary settlements-total ${totalAnimationClass}" ${settlementTotalAnimationStyle}>
-                                <span class="label">${sectionTitle}</span>
-                            </div>`;
+                    settlementsHtml += `
+                        <div class="summary settlements-summary settlements-total ${totalAnimationClass}" ${settlementTotalAnimationStyle}>
+                            <span class="label">${sectionTitle}</span>
+                        </div>`;
 
-                        if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
+                    if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
 
-                        // Show active settlements
-                        if (totalExpenses !== 0 && currentSettlements.length > 0) {
-                            currentSettlements.forEach((settlement, index) => {
-                                const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
-                                settlementsHtml += generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people);
-                                if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
-                            });
-                        }
+                    // Show active settlements
+                    if (totalExpenses !== 0 && currentSettlements.length > 0) {
+                        currentSettlements.forEach((settlement, index) => {
+                            const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
+                            settlementsHtml += generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people);
+                            if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
+                        });
+                    }
 
-                        // Show settlement log entries (completed settlements from textarea)
-                        const settlementTransactions = transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
-                        if (settlementTransactions.length > 0) {
-                            settlementTransactions.forEach((settlement, index) => {
-                                const shouldAnimate = shouldAnimateNewItems;
-                                settlementsHtml += generateSettlementLogHTML(settlement, shouldAnimate, animationDelay, people);
-                                if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
-                            });
-                        }
+                    // Show settlement log entries (completed settlements from textarea)
+                    const settlementTransactions = transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
+                    if (settlementTransactions.length > 0) {
+                        settlementTransactions.forEach((settlement, index) => {
+                            const shouldAnimate = shouldAnimateNewItems;
+                            settlementsHtml += generateSettlementLogHTML(settlement, shouldAnimate, animationDelay, people);
+                            if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
+                        });
                     }
 
                     expensesDiv.innerHTML = expensesHtml;
