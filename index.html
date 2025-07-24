@@ -498,17 +498,9 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                 SETTLEMENT: 'settlement'
             },
 
-            // CSS classes
-            CSS_CLASSES: {
-                SLIDE_IN: 'slide-in',
-                COPIED: 'copied',
-                SETTLEMENT_SUCCESS: 'settlement-success'
-            },
-
             // Localized strings
             STRINGS: {
                 'en': {
-                    PROCESSING_ERROR: 'Error processing data. Check the format.',
                     SETTLED_TEXT: 'SETTLED',
                     COPY_SUCCESS: 'COPIED ✓',
                     NOTHING_TO_COPY: 'Nothing to copy. Add some expenses first.',
@@ -518,15 +510,12 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     EXPENSES: 'Expenses',
                     COSTS: 'Costs',
                     SETTLEMENTS: 'Settlements',
-                    TRANSACTIONS: 'Payments',
-
                     OWES_TEMPLATE: '{fromName} owes {amount} to {toName}',
                     PAID_TEMPLATE: '{fromName} paid {amount} to {toName}',
-                    SETTLEMENT_WORD: 'Settlement',
                     PERSON_NOT_FOUND: 'does not match any listed person',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" is ambiguous - could refer to: {matchingNames}',
                     PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
-                    PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
+                    DUPLICATE_NAME_TEMPLATE: 'Name "{currentName}" is duplicated with "{existingName}" on line {existingLine}',
                     PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
                     EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
                     COPY_MANUAL_SELECT: 'Could not copy automatically. Please select and copy manually.',
@@ -534,15 +523,10 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     SETTLEMENT_ERROR: 'Error processing settlement. Try again.',
                     ALL_SETTLED: 'All settled!',
                     NOTHING_TO_SETTLE: 'Nothing to settle!',
-
                     COPY_SUMMARY: 'COPY SUMMARY',
                     CLEAR: 'CLEAR',
                     SETTLED_BUTTON: 'SETTLED',
-                    NO_DATA_MESSAGE: 'Add expenses above to see division and settlements',
-                    ALL_SETTLED_UP: 'Everything is settled!',
-                    NO_EXPENSES_TO_SETTLE: 'No expenses to settle',
                     ERROR_GENERATING_SUMMARY: 'Error generating summary',
-                    ERROR_LOADING_PAGE: 'Error loading page. Please reload.',
                     PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
 
 David
@@ -559,7 +543,6 @@ Cristy
 `
                 },
                 'pt-BR': {
-                    PROCESSING_ERROR: 'Erro ao processar os dados. Verifique o formato.',
                     SETTLED_TEXT: 'ACERTADO',
                     COPY_SUCCESS: 'COPIADO ✓',
                     NOTHING_TO_COPY: 'Nada para copiar. Adicione alguns gastos primeiro.',
@@ -569,15 +552,12 @@ Cristy
                     EXPENSES: 'Gastos',
                     COSTS: 'Custos',
                     SETTLEMENTS: 'Acertos',
-                    TRANSACTIONS: 'Pagamentos',
-
                     OWES_TEMPLATE: '{fromName} deve {amount} para {toName}',
                     PAID_TEMPLATE: '{fromName} pagou {amount} para {toName}',
-                    SETTLEMENT_WORD: 'Acerto',
                     PERSON_NOT_FOUND: 'não corresponde a nenhuma pessoa listada',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" é ambíguo - pode se referir a: {matchingNames}',
                     PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
-                    PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
+                    DUPLICATE_NAME_TEMPLATE: 'Nome "{currentName}" está duplicado com "{existingName}" na linha {existingLine}',
                     PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
                     EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
                     COPY_MANUAL_SELECT: 'Não foi possível copiar automaticamente. Selecione e copie manualmente.',
@@ -585,15 +565,10 @@ Cristy
                     SETTLEMENT_ERROR: 'Erro ao processar acerto. Tente novamente.',
                     ALL_SETTLED: 'Tudo acertado!',
                     NOTHING_TO_SETTLE: 'Nada para acertar!',
-
                     COPY_SUMMARY: 'COPIAR RESUMO',
                     CLEAR: 'LIMPAR',
                     SETTLED_BUTTON: 'ACERTADO',
-                    NO_DATA_MESSAGE: 'Adicione despesas acima para ver a divisão e acertos',
-                    ALL_SETTLED_UP: 'Tudo está acertado!',
-                    NO_EXPENSES_TO_SETTLE: 'Nenhum gasto para acertar',
                     ERROR_GENERATING_SUMMARY: 'Erro ao gerar resumo',
-                    ERROR_LOADING_PAGE: 'Erro ao carregar a página. Por favor, recarregue.',
                     PLACEHOLDER: `ADICIONE DESPESAS NO FORMATO:
 
 David
@@ -610,7 +585,6 @@ Cristy
 `
                 },
                 'es': {
-                    PROCESSING_ERROR: 'Error al procesar los datos. Verifique el formato.',
                     SETTLED_TEXT: 'LIQUIDADO',
                     COPY_SUCCESS: 'COPIADO ✓',
                     NOTHING_TO_COPY: 'Nada que copiar. Agregue algunos gastos primero.',
@@ -620,15 +594,12 @@ Cristy
                     EXPENSES: 'Gastos',
                     COSTS: 'Costos',
                     SETTLEMENTS: 'Liquidaciones',
-                    TRANSACTIONS: 'Pagos',
-
                     OWES_TEMPLATE: '{fromName} debe {amount} a {toName}',
                     PAID_TEMPLATE: '{fromName} pagó {amount} a {toName}',
-                    SETTLEMENT_WORD: 'Liquidación',
                     PERSON_NOT_FOUND: 'no corresponde a ninguna persona listada',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" es ambiguo - puede referirse a: {matchingNames}',
                     PERSON_NOT_FOUND_TEMPLATE: '"{personRef}" {errorMessage}',
-                    PAYMENT_LINE_TEMPLATE: '-{amount} {settlementWord} - {toName}',
+                    DUPLICATE_NAME_TEMPLATE: 'Nombre "{currentName}" está duplicado con "{existingName}" en línea {existingLine}',
                     PERSON_WITH_PARTS_TEMPLATE: '{displayName} ({parts})',
                     EXPENSE_WITH_PARTICIPANTS_TEMPLATE: '{description} - {participants}',
                     COPY_MANUAL_SELECT: 'No se pudo copiar automáticamente. Seleccione y copie manualmente.',
@@ -636,15 +607,10 @@ Cristy
                     SETTLEMENT_ERROR: 'Error al procesar la liquidación. Inténtelo de nuevo.',
                     ALL_SETTLED: '¡Todo liquidado!',
                     NOTHING_TO_SETTLE: '¡Nada que liquidar!',
-
                     COPY_SUMMARY: 'COPIAR RESUMEN',
                     CLEAR: 'LIMPIAR',
                     SETTLED_BUTTON: 'LIQUIDADO',
-                    NO_DATA_MESSAGE: 'Agregue gastos arriba para ver la división y liquidaciones',
-                    ALL_SETTLED_UP: '¡Todo está liquidado!',
-                    NO_EXPENSES_TO_SETTLE: 'Ningún gasto que liquidar',
                     ERROR_GENERATING_SUMMARY: 'Error al generar resumen',
-                    ERROR_LOADING_PAGE: 'Error al cargar la página. Por favor, recargue.',
                     PLACEHOLDER: `AGREGUE GASTOS EN EL FORMATO:
 
 David
@@ -673,7 +639,6 @@ Cristy
             get MESSAGES() {
                 const strings = this.STRINGS[currentLocale] || this.STRINGS['en'];
                 return {
-                    PROCESSING_ERROR: strings.PROCESSING_ERROR,
                     SETTLED_TEXT: strings.SETTLED_TEXT,
                     COPY_SUCCESS: strings.COPY_SUCCESS,
                     NOTHING_TO_COPY: strings.NOTHING_TO_COPY,
@@ -683,15 +648,12 @@ Cristy
                     EXPENSES: strings.EXPENSES,
                     COSTS: strings.COSTS,
                     SETTLEMENTS: strings.SETTLEMENTS,
-                    TRANSACTIONS: strings.TRANSACTIONS,
-
                     OWES_TEMPLATE: strings.OWES_TEMPLATE,
                     PAID_TEMPLATE: strings.PAID_TEMPLATE,
-                    SETTLEMENT_WORD: strings.SETTLEMENT_WORD,
                     PERSON_NOT_FOUND: strings.PERSON_NOT_FOUND,
                     AMBIGUOUS_PERSON_TEMPLATE: strings.AMBIGUOUS_PERSON_TEMPLATE,
                     PERSON_NOT_FOUND_TEMPLATE: strings.PERSON_NOT_FOUND_TEMPLATE,
-                    PAYMENT_LINE_TEMPLATE: strings.PAYMENT_LINE_TEMPLATE,
+                    DUPLICATE_NAME_TEMPLATE: strings.DUPLICATE_NAME_TEMPLATE,
                     PERSON_WITH_PARTS_TEMPLATE: strings.PERSON_WITH_PARTS_TEMPLATE,
                     EXPENSE_WITH_PARTICIPANTS_TEMPLATE: strings.EXPENSE_WITH_PARTICIPANTS_TEMPLATE,
                     COPY_MANUAL_SELECT: strings.COPY_MANUAL_SELECT,
@@ -699,7 +661,7 @@ Cristy
                     SETTLEMENT_ERROR: strings.SETTLEMENT_ERROR,
                     ALL_SETTLED: strings.ALL_SETTLED,
                     NOTHING_TO_SETTLE: strings.NOTHING_TO_SETTLE,
-
+                    ERROR_GENERATING_SUMMARY: strings.ERROR_GENERATING_SUMMARY
                 };
             },
 
@@ -1129,6 +1091,7 @@ Cristy
             const personData = {};
 
             // First pass: collect all person names
+            const seenDisplayNames = new Map(); // Track display names case-insensitively
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 if (line === '') continue;
@@ -1147,6 +1110,23 @@ Cristy
 
                     if (!displayName) {
                         displayName = line;
+                    }
+
+                    // Check for case-insensitive duplicate names
+                    const lowerDisplayName = displayName.toLowerCase();
+                    if (seenDisplayNames.has(lowerDisplayName)) {
+                        const existingLine = seenDisplayNames.get(lowerDisplayName);
+                        warnings.push({
+                            line: i + 1,
+                            text: line,
+                            error: formatTemplate(CONSTANTS.MESSAGES.DUPLICATE_NAME_TEMPLATE, {
+                                currentName: displayName,
+                                existingName: existingLine.displayName,
+                                existingLine: existingLine.lineNumber
+                            })
+                        });
+                    } else {
+                        seenDisplayNames.set(lowerDisplayName, { displayName, lineNumber: i + 1 });
                     }
 
                     personData[line] = { displayName, originalName: line };
@@ -1261,6 +1241,7 @@ Cristy
                 // First pass: collect all person names with their parts
                 const allNames = [];
                 const personData = {};
+                const seenDisplayNames = new Map(); // Track display names case-insensitively
                 for (const line of lines) {
                     if (line === '') continue;
 
@@ -1269,6 +1250,15 @@ Cristy
 
                     if (!expenseMatch && startsWithLetter && line.length > 0) {
                         const personInfo = parsePersonName(line);
+
+                        // Check for case-insensitive duplicate names
+                        const lowerDisplayName = personInfo.displayName.toLowerCase();
+                        if (seenDisplayNames.has(lowerDisplayName)) {
+                            // Skip duplicate names to prevent processing errors
+                            continue;
+                        }
+                        seenDisplayNames.set(lowerDisplayName, personInfo.displayName);
+
                         allNames.push(line);
                         personData[line] = personInfo;
                     }
@@ -1636,10 +1626,14 @@ Cristy
 
                 // Calculate maximum width for amounts across all expenses using transactions
                 let maxWidth = 0;
-                currentTransactions.forEach(transaction => {
-                    const width = formatNumber(transaction.amount).length;
-                    if (width > maxWidth) maxWidth = width;
-                });
+                if (currentTransactions && Array.isArray(currentTransactions)) {
+                    currentTransactions.forEach(transaction => {
+                        if (transaction && transaction.amount !== undefined) {
+                            const width = formatNumber(transaction.amount).length;
+                            if (width > maxWidth) maxWidth = width;
+                        }
+                    });
+                }
 
                 // Ensure minimum width for proper alignment
                 if (maxWidth === 0) maxWidth = 8;
@@ -1655,11 +1649,12 @@ Cristy
                         // Use transactions to reconstruct the original format
                         const processedTransactions = new Set();
 
-                        currentTransactions.forEach(transaction => {
-                            if (transaction.paidBy === name && !processedTransactions.has(transaction)) {
-                                processedTransactions.add(transaction);
+                        if (currentTransactions && Array.isArray(currentTransactions)) {
+                            currentTransactions.forEach(transaction => {
+                                if (transaction && transaction.paidBy === name && !processedTransactions.has(transaction)) {
+                                    processedTransactions.add(transaction);
 
-                                let formattedAmount, description = transaction.description || '';
+                                    let formattedAmount, description = transaction.description || '';
 
                                 if (transaction.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT) {
                                     // Settlement: amount > recipient format
@@ -1698,11 +1693,12 @@ Cristy
                         person.expenses.forEach(expense => {
                             if (expense.isSettlement) {
                                 const formattedAmount = formatNumber(expense.amount);
-                                const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
-                                const fullDescription = expense.description ? ` ${expense.description}` : '';
-                                formattedText += `${paddedAmount}${fullDescription}\n`;
-                            }
-                        });
+                                    const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
+                                    const fullDescription = description ? ` ${description}` : '';
+                                    formattedText += `${paddedAmount}${fullDescription}\n`;
+                                }
+                            });
+                        }
 
                         formattedText += '\n';
                     }
@@ -1848,11 +1844,11 @@ Cristy
             const button = document.getElementById('copyButton');
             const originalText = button.textContent;
             button.textContent = CONSTANTS.MESSAGES.COPY_SUCCESS;
-            button.classList.add(CONSTANTS.CSS_CLASSES.COPIED);
+            button.classList.add('copied');
 
             setTimeout(() => {
                 button.textContent = originalText;
-                button.classList.remove(CONSTANTS.CSS_CLASSES.COPIED);
+                button.classList.remove('copied');
             }, CONSTANTS.COPY_SUCCESS_TIMEOUT);
         }
 
@@ -2124,7 +2120,7 @@ Cristy
                     // Show success state with green background
                     const settlementWrapper = document.querySelector(`[data-settlement-index="${settlementIndex}"]`);
                     if (settlementWrapper) {
-                        settlementWrapper.classList.add(CONSTANTS.CSS_CLASSES.SETTLEMENT_SUCCESS);
+                        settlementWrapper.classList.add('settlement-success');
 
                         // Replace the settlement text with "Acertado"
                         const settlementText = settlementWrapper.querySelector('.label');
@@ -2223,13 +2219,17 @@ Cristy
                     const textarea = document.getElementById('expenseInput');
                     textarea.value = savedData;
 
-                    // Parse and reformat the loaded data
-                    const { people, transactions } = parseExpenses(savedData);
-                    if (people && transactions) {
-                        currentPeopleData = people;
-                        currentTransactions = transactions;
+                    // Check for validation errors first
+                    const warnings = validateExpenses(savedData);
+                    if (warnings.length === 0) {
+                        // Only parse and reformat if there are no validation errors
+                        const { people, transactions } = parseExpenses(savedData);
+                        if (people && transactions) {
+                            currentPeopleData = people;
+                            currentTransactions = transactions;
 
-                        applyFormattedTextToTextarea(false); // Don't save to storage during load
+                            applyFormattedTextToTextarea(false); // Don't save to storage during load
+                        }
                     }
 
                     // Auto-expand after loading content
