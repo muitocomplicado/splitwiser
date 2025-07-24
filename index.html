@@ -47,6 +47,8 @@
             --bg-button-settle: #c2410c;
             --bg-button-settle-hover: #ea580c;
             --text-button-settle: #ffffff;
+            --bg-settlement-success: #c2410c;
+            --text-settlement-success: #ffffff;
             --border-primary: #ede7dc;
             --border-focus: #16a34a;
             --border-expenses: #16a34a;
@@ -54,7 +56,7 @@
             --bg-error: #fee;
             --text-error: #c53030;
             --border-error: #fc8181;
-            --bg-code: #f7f7f7;
+            --bg-warning:rgba(50,50,50,0.5);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -79,6 +81,8 @@
                 --bg-button-settle: #f97316;
                 --bg-button-settle-hover: #fb923c;
                 --text-button-settle: #000000;
+                --bg-settlement-success: #f97316;
+                --text-settlement-success: #000000;
                 --border-primary: #44403c;
                 --border-focus: #22c55e;
                 --border-expenses: #16a34a;
@@ -86,7 +90,7 @@
                 --bg-error: #2d1b1b;
                 --text-error: #fc8181;
                 --border-error: #c53030;
-                --bg-code: #2d2d2d;
+                --bg-warning:rgba(50,50,50,0.5);
             }
         }
 
@@ -272,27 +276,38 @@
         }
 
         .settlements-summary.settlement-success {
-            background: var(--bg-success);
-            color: var(--text-success);
+            background: var(--bg-settlement-success);
+            color: var(--text-settlement-success);
             transform: scale(1.02);
-            box-shadow: 0 2px 8px var(--shadow-success);
+            box-shadow: 0 2px 8px rgba(194, 65, 12, 0.4);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .settlements-summary.settlement-success {
+                box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+            }
         }
 
         .settlements-summary.settlement-success .label {
-            color: var(--text-success);
+            color: var(--text-settlement-success);
             text-align: center;
             font-weight: bold;
         }
 
         .settlements-summary.settlement-success .settle-button {
             background: var(--bg-button-secondary-hover);
-            color: var(--text-success);
+            color: var(--text-settlement-success);
             cursor: default;
         }
 
         .settlements-summary.all-settled-up {
             color: var(--text-muted);
             font-style: italic;
+        }
+
+        .settlements-summary.settlement-log {
+            color: var(--text-muted);
+            opacity: 0.7;
         }
 
         .validation-warning {
@@ -306,12 +321,11 @@
         }
 
         .validation-warning .warning-line {
-            background: var(--bg-code);
-            padding: 4px 8px;
+            background: var(--bg-warning);
+            padding: 10px 16px;
             border-radius: 4px;
-            margin: 4px 0;
+            margin: 8px 0;
             font-family: monospace;
-            border-left: 3px solid var(--border-error);
         }
 
         /* Slide animations */
@@ -385,6 +399,12 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
         <div class="summary settlements-summary">
             <span class="label"></span>
             <button class="settle-button">✓<span class="settle-text"></span></button>
+        </div>
+    </template>
+
+    <template id="settlement-log-template">
+        <div class="summary settlements-summary settlement-log">
+            <span class="label"></span>
         </div>
     </template>
 
@@ -496,11 +516,12 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     RESET_CONFIRM: 'Are you sure you want to clear all data? This action cannot be undone.',
                     RESET_ERROR: 'Error clearing data. Try again.',
                     EXPENSES: 'Expenses',
+                    COSTS: 'Costs',
                     SETTLEMENTS: 'Settlements',
-                    TRANSACTIONS_SECTION: '*PAYMENTS*',
-                    EXPENSES_SECTION: '*EXPENSES*',
-                    SETTLEMENTS_SECTION: '*SETTLEMENTS*',
+                    TRANSACTIONS: 'Payments',
+
                     OWES_TEMPLATE: '{fromName} owes {amount} to {toName}',
+                    PAID_TEMPLATE: '{fromName} paid {amount} to {toName}',
                     SETTLEMENT_WORD: 'Settlement',
                     PERSON_NOT_FOUND: 'does not match any listed person',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" is ambiguous - could refer to: {matchingNames}',
@@ -513,6 +534,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     SETTLEMENT_ERROR: 'Error processing settlement. Try again.',
                     ALL_SETTLED: 'All settled!',
                     NOTHING_TO_SETTLE: 'Nothing to settle!',
+                    INVALID_NAME_CHARACTERS: 'Names cannot contain "-" or ">" characters as they have special meanings',
                     COPY_SUMMARY: 'COPY SUMMARY',
                     CLEAR: 'CLEAR',
                     SETTLED_BUTTON: 'SETTLED',
@@ -545,11 +567,12 @@ Cristy
                     RESET_CONFIRM: 'Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.',
                     RESET_ERROR: 'Erro ao limpar os dados. Tente novamente.',
                     EXPENSES: 'Gastos',
+                    COSTS: 'Custos',
                     SETTLEMENTS: 'Acertos',
-                    TRANSACTIONS_SECTION: '*PAGAMENTOS*',
-                    EXPENSES_SECTION: '*GASTOS*',
-                    SETTLEMENTS_SECTION: '*ACERTOS*',
+                    TRANSACTIONS: 'Pagamentos',
+
                     OWES_TEMPLATE: '{fromName} deve {amount} para {toName}',
+                    PAID_TEMPLATE: '{fromName} pagou {amount} para {toName}',
                     SETTLEMENT_WORD: 'Acerto',
                     PERSON_NOT_FOUND: 'não corresponde a nenhuma pessoa listada',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" é ambíguo - pode se referir a: {matchingNames}',
@@ -562,6 +585,7 @@ Cristy
                     SETTLEMENT_ERROR: 'Erro ao processar acerto. Tente novamente.',
                     ALL_SETTLED: 'Tudo acertado!',
                     NOTHING_TO_SETTLE: 'Nada para acertar!',
+                    INVALID_NAME_CHARACTERS: 'Nomes não podem conter os caracteres "-" ou ">" pois têm significados especiais',
                     COPY_SUMMARY: 'COPIAR RESUMO',
                     CLEAR: 'LIMPAR',
                     SETTLED_BUTTON: 'ACERTADO',
@@ -594,11 +618,12 @@ Cristy
                     RESET_CONFIRM: '¿Está seguro de que desea borrar todos los datos? Esta acción no se puede deshacer.',
                     RESET_ERROR: 'Error al borrar los datos. Inténtelo de nuevo.',
                     EXPENSES: 'Gastos',
+                    COSTS: 'Costos',
                     SETTLEMENTS: 'Liquidaciones',
-                    TRANSACTIONS_SECTION: '*PAGOS*',
-                    EXPENSES_SECTION: '*GASTOS*',
-                    SETTLEMENTS_SECTION: '*LIQUIDACIONES*',
+                    TRANSACTIONS: 'Pagos',
+
                     OWES_TEMPLATE: '{fromName} debe {amount} a {toName}',
+                    PAID_TEMPLATE: '{fromName} pagó {amount} a {toName}',
                     SETTLEMENT_WORD: 'Liquidación',
                     PERSON_NOT_FOUND: 'no corresponde a ninguna persona listada',
                     AMBIGUOUS_PERSON_TEMPLATE: '"{personRef}" es ambiguo - puede referirse a: {matchingNames}',
@@ -611,6 +636,7 @@ Cristy
                     SETTLEMENT_ERROR: 'Error al procesar la liquidación. Inténtelo de nuevo.',
                     ALL_SETTLED: '¡Todo liquidado!',
                     NOTHING_TO_SETTLE: '¡Nada que liquidar!',
+                    INVALID_NAME_CHARACTERS: 'Los nombres no pueden contener los caracteres "-" o ">" ya que tienen significados especiales',
                     COPY_SUMMARY: 'COPIAR RESUMEN',
                     CLEAR: 'LIMPIAR',
                     SETTLED_BUTTON: 'LIQUIDADO',
@@ -655,11 +681,12 @@ Cristy
                     RESET_CONFIRM: strings.RESET_CONFIRM,
                     RESET_ERROR: strings.RESET_ERROR,
                     EXPENSES: strings.EXPENSES,
+                    COSTS: strings.COSTS,
                     SETTLEMENTS: strings.SETTLEMENTS,
-                    TRANSACTIONS_SECTION: strings.TRANSACTIONS_SECTION,
-                    EXPENSES_SECTION: strings.EXPENSES_SECTION,
-                    SETTLEMENTS_SECTION: strings.SETTLEMENTS_SECTION,
+                    TRANSACTIONS: strings.TRANSACTIONS,
+
                     OWES_TEMPLATE: strings.OWES_TEMPLATE,
+                    PAID_TEMPLATE: strings.PAID_TEMPLATE,
                     SETTLEMENT_WORD: strings.SETTLEMENT_WORD,
                     PERSON_NOT_FOUND: strings.PERSON_NOT_FOUND,
                     AMBIGUOUS_PERSON_TEMPLATE: strings.AMBIGUOUS_PERSON_TEMPLATE,
@@ -671,7 +698,8 @@ Cristy
                     COPY_MANUAL_FALLBACK: strings.COPY_MANUAL_FALLBACK,
                     SETTLEMENT_ERROR: strings.SETTLEMENT_ERROR,
                     ALL_SETTLED: strings.ALL_SETTLED,
-                    NOTHING_TO_SETTLE: strings.NOTHING_TO_SETTLE
+                    NOTHING_TO_SETTLE: strings.NOTHING_TO_SETTLE,
+                    INVALID_NAME_CHARACTERS: strings.INVALID_NAME_CHARACTERS
                 };
             },
 
@@ -811,6 +839,41 @@ Cristy
             return tempDiv.innerHTML;
         }
 
+        // Utility function to generate settlement log HTML
+        function generateSettlementLogHTML(settlement, shouldAnimate, animationDelay, people) {
+            const template = document.getElementById('settlement-log-template');
+            const clone = template.content.cloneNode(true);
+
+            const animationClass = shouldAnimate ? 'slide-in' : '';
+
+            const wrapper = clone.querySelector('.settlements-summary');
+            wrapper.className = `summary settlements-summary settlement-log ${animationClass}`;
+
+            if (shouldAnimate) {
+                wrapper.style.animationDelay = `${animationDelay}ms`;
+            }
+
+            // Get display names for the settlement
+            const fromPerson = people[settlement.paidBy];
+            const toPerson = people[settlement.settleTo];
+            const fromName = fromPerson ? fromPerson.displayName : settlement.paidBy;
+            const toName = toPerson ? toPerson.displayName : settlement.settleTo;
+
+            clone.querySelector('.label').textContent = formatTemplate(
+                CONSTANTS.MESSAGES.PAID_TEMPLATE,
+                {
+                    fromName: escapeHtml(fromName),
+                    amount: formatNumber(settlement.amount),
+                    toName: escapeHtml(toName)
+                }
+            );
+
+            // Create a temporary div to get the outerHTML
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(clone);
+            return tempDiv.innerHTML;
+        }
+
         // Utility function to generate no-data message HTML using template
 
 
@@ -827,73 +890,87 @@ Cristy
             return tempDiv.innerHTML;
         }
 
-        function findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
-            // First try exact match with original names
-            if (allNames.includes(nameOrInitial)) {
-                return nameOrInitial;
+        // Utility function to validate a person reference and return validation result
+        function validatePersonReference(personRef, people, personData) {
+            // Skip empty references
+            if (!personRef || personRef.trim() === '') {
+                return { isValid: true, matches: [] };
             }
 
-            // Then try partial match from the beginning with original names
-            let matches = allNames.filter(name =>
-                name.toLowerCase().startsWith(nameOrInitial.toLowerCase().trim())
+            const trimmedRef = personRef.trim();
+
+            // Find potential matches
+            const exactMatches = people.filter(name => name === trimmedRef);
+            const partialMatches = people.filter(name =>
+                name.toLowerCase().startsWith(trimmedRef.toLowerCase())
             );
-
-            if (matches.length === 1) {
-                return matches[0];
-            }
-
-            // Try matching against display names
-            matches = allNames.filter(name => {
-                const personInfo = personData[name];
-                if (personInfo) {
-                    return personInfo.displayName.toLowerCase().startsWith(nameOrInitial.toLowerCase().trim());
-                }
-                return false;
+            const displayMatches = people.filter(name => {
+                const info = personData[name];
+                return info && info.displayName.toLowerCase().startsWith(trimmedRef.toLowerCase());
             });
 
-            return matches.length === 1 ? matches[0] : null;
+            // Get unique matches
+            const allMatches = [...new Set([...exactMatches, ...partialMatches, ...displayMatches])];
+
+            return {
+                isValid: allMatches.length === 1,
+                matches: allMatches,
+                isAmbiguous: allMatches.length > 1,
+                notFound: allMatches.length === 0,
+                personRef: trimmedRef
+            };
+        }
+
+        function findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
+            const validation = validatePersonReference(nameOrInitial, allNames, personData);
+            return validation.isValid ? validation.matches[0] : null;
         }
 
         function parseTransaction(expenseLine, allNames, personData) {
-            // Look for pattern: amount description - person1, person2, person3 (or single person for settlements)
-            const transactionMatch = expenseLine.match(/^(-?\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
+            // Look for settlement pattern: amount > person (settlement format)
+            const settlementMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
 
-            if (transactionMatch) {
-                const amount = parseNumber(transactionMatch[1]);
-                const description = transactionMatch[2].trim();
-                const peopleStr = transactionMatch[3].trim();
+            if (settlementMatch) {
+                const amount = parseNumber(settlementMatch[1]);
+                const personStr = settlementMatch[2].trim();
+                const resolvedPerson = findPersonByNameOrInitial(personStr, allNames, personData);
 
-                if (amount < 0) {
-                    // Negative amount: settlement to a single person
-                    const resolvedPerson = findPersonByNameOrInitial(peopleStr, allNames, personData);
-                    if (resolvedPerson && !isNaN(amount)) {
-                        return {
-                            type: CONSTANTS.TRANSACTION_TYPES.SETTLEMENT,
-                            amount: Math.abs(amount),
-                            description: description,
-                            settleTo: resolvedPerson
-                        };
+                if (resolvedPerson && !isNaN(amount) && amount > 0) {
+                    return {
+                        type: CONSTANTS.TRANSACTION_TYPES.SETTLEMENT,
+                        amount: amount,
+                        description: '',
+                        settleTo: resolvedPerson
+                    };
+                }
+            }
+
+            // Look for expense pattern: amount description - person1, person2, person3
+            const expenseMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
+
+            if (expenseMatch) {
+                const amount = parseNumber(expenseMatch[1]);
+                const description = expenseMatch[2].trim();
+                const peopleStr = expenseMatch[3].trim();
+
+                // Expense: positive amount
+                const peopleNames = peopleStr.split(',').map(p => p.trim());
+                const resolvedPeople = [];
+
+                for (const personRef of peopleNames) {
+                    const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
+                    if (resolvedPerson) {
+                        resolvedPeople.push(resolvedPerson);
                     }
-                } else {
-                    // Positive amount: expense
-                    const peopleNames = peopleStr.split(',').map(p => p.trim());
-                    const resolvedPeople = [];
+                }
 
-                    for (const personRef of peopleNames) {
-                        const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
-                        if (resolvedPerson) {
-                            resolvedPeople.push(resolvedPerson);
-                        }
-                    }
-
-                    if (!isNaN(amount) && amount >= 0 && resolvedPeople.length > 0) {
-                        return {
-                            type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
-                            amount: amount,
-                            description: description,
-                            sharedWith: resolvedPeople
-                        };
-                    }
+                if (!isNaN(amount) && amount > 0 && resolvedPeople.length > 0) {
+                    return {
+                        type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
+                        amount: amount,
+                        description: description,
+                        sharedWith: resolvedPeople
+                    };
                 }
             }
 
@@ -904,15 +981,9 @@ Cristy
             try {
                 numStr = numStr.trim();
 
-                // Check for negative sign
-                const isNegative = numStr.startsWith('-');
-                if (isNegative) {
-                    numStr = numStr.substring(1).trim();
-                }
-
                 // Handle simple integers
                 if (/^\d+$/.test(numStr)) {
-                    return isNegative ? -parseFloat(numStr) : parseFloat(numStr);
+                    return parseFloat(numStr);
                 }
 
                 // Remove any non-digit, non-comma, non-dot characters
@@ -924,8 +995,7 @@ Cristy
 
                 // No separators
                 if (lastDot === -1 && lastComma === -1) {
-                    const result = parseFloat(cleaned);
-                    return isNegative ? -result : result;
+                    return parseFloat(cleaned);
                 }
 
                 // Only dots or only commas
@@ -935,12 +1005,10 @@ Cristy
                     const lastPart = parts[parts.length - 1];
                     if (lastPart.length <= 2 && parts.length >= 2) {
                         // Likely decimal: 1.234.56 -> 1234.56
-                        const result = parseFloat(parts.slice(0, -1).join('') + '.' + lastPart);
-                        return isNegative ? -result : result;
+                        return parseFloat(parts.slice(0, -1).join('') + '.' + lastPart);
                     } else {
                         // Likely thousands: 1.234 -> 1234
-                        const result = parseFloat(cleaned.replace(/\./g, ''));
-                        return isNegative ? -result : result;
+                        return parseFloat(cleaned.replace(/\./g, ''));
                     }
                 }
 
@@ -950,12 +1018,10 @@ Cristy
                     const lastPart = parts[parts.length - 1];
                     if (lastPart.length <= 2 && parts.length >= 2) {
                         // Likely decimal: 123,45 or 1.234,56
-                        const result = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-                        return isNegative ? -result : result;
+                        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
                     } else {
                         // Likely thousands: 1,234 -> 1234
-                        const result = parseFloat(cleaned.replace(/,/g, ''));
-                        return isNegative ? -result : result;
+                        return parseFloat(cleaned.replace(/,/g, ''));
                     }
                 }
 
@@ -964,15 +1030,13 @@ Cristy
                     // Dot comes last: assume US format (1,234.56)
                     const afterDot = cleaned.substring(lastDot + 1);
                     if (afterDot.length <= 2) {
-                        const result = parseFloat(cleaned.replace(/,/g, ''));
-                        return isNegative ? -result : result;
+                        return parseFloat(cleaned.replace(/,/g, ''));
                     }
                 } else {
                     // Comma comes last: assume European format (1.234,56)
                     const afterComma = cleaned.substring(lastComma + 1);
                     if (afterComma.length <= 2) {
-                        const result = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-                        return isNegative ? -result : result;
+                        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
                     }
                 }
 
@@ -986,13 +1050,11 @@ Cristy
                     if (afterLast.length <= 2) {
                         // Treat as decimal
                         const cleanBefore = beforeLast.replace(/[.,]/g, '');
-                        const result = parseFloat(cleanBefore + '.' + afterLast);
-                        return isNegative ? -result : result;
+                        return parseFloat(cleanBefore + '.' + afterLast);
                     }
                 }
 
-                const result = parseFloat(cleaned.replace(/[.,]/g, ''));
-                return isNegative ? -result : result;
+                return parseFloat(cleaned.replace(/[.,]/g, ''));
             } catch (error) {
                 console.error('Error parsing number:', numStr, error);
                 return NaN;
@@ -1072,74 +1134,103 @@ Cristy
                 if (line === '') continue;
 
                 const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
-                if (!expenseMatch && line.length > 0) {
+                const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
+
+                if (!expenseMatch && startsWithLetter && line.length > 0) {
+                    // Check for forbidden characters in names
+                    if (line.includes('-') || line.includes('>')) {
+                        warnings.push({
+                            line: i + 1,
+                            text: line,
+                            error: CONSTANTS.MESSAGES.INVALID_NAME_CHARACTERS
+                        });
+                        continue; // Skip this line, don't add as a person
+                    }
+
                     people.push(line);
 
-                    // Parse person info for display name
-                    const numberMatch = line.match(/(\d+)/);
-                    let displayName = line;
-                    if (numberMatch) {
-                        displayName = line
-                            .replace(/\s*\(\s*\d+\s*\)\s*/g, ' ')
-                            .replace(/\s*-\s*\d+\s*/g, ' ')
-                            .replace(/\s+\d+\s*$/g, '')
-                            .replace(/^\s*\d+\s+/g, '')
-                            .replace(/\s+/g, ' ')
-                            .trim();
-                    }
+                    // Parse person info for display name - remove ALL numbers
+                    let displayName = line.replace(/\d+/g, '').trim();
+
+                    // Clean up any leftover punctuation and spaces
+                    displayName = displayName
+                        .replace(/\s*\(\s*\)\s*/g, ' ')    // Remove empty parentheses
+                        .replace(/\s*-\s*$/g, '')          // Remove trailing hyphens
+                        .replace(/^\s*-\s*/g, '')          // Remove leading hyphens
+                        .replace(/\s+/g, ' ')              // Normalize multiple spaces
+                        .trim();
+
                     if (!displayName) {
-                        displayName = line.replace(/\d+/g, '').trim() || line;
+                        displayName = line;
                     }
 
                     personData[line] = { displayName, originalName: line };
                 }
             }
 
-            // Second pass: check for ambiguous references in expenses
+            // Second pass: check for ambiguous references in expenses and validate settlements
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 if (line === '') continue;
 
+                // Check settlement lines (amount > person)
+                const settlementMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
+                if (settlementMatch) {
+                    const personRef = settlementMatch[2].trim();
+                    const validation = validatePersonReference(personRef, people, personData);
+
+                    if (validation.isAmbiguous) {
+                        const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
+                        warnings.push({
+                            line: i + 1,
+                            text: line,
+                            error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
+                                personRef: validation.personRef,
+                                matchingNames: matchingNames
+                            })
+                        });
+                    } else if (validation.notFound) {
+                        warnings.push({
+                            line: i + 1,
+                            text: line,
+                            error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
+                                personRef: validation.personRef,
+                                errorMessage: CONSTANTS.MESSAGES.PERSON_NOT_FOUND
+                            })
+                        });
+                    }
+                }
+
+                // Check expense lines (amount description - person1, person2, ...)
                 const sharedMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
                 if (sharedMatch) {
                     const peopleStr = sharedMatch[3].trim();
                     const peopleRefs = peopleStr.split(',').map(p => p.trim());
 
                     for (const personRef of peopleRefs) {
-                        // Skip empty references (e.g., from trailing commas like "D,")
-                        if (personRef.trim() === '') {
+                        const validation = validatePersonReference(personRef, people, personData);
+
+                        // Skip empty references
+                        if (!validation.personRef) {
                             continue;
                         }
 
-                        // Find potential matches
-                        const exactMatches = people.filter(name => name === personRef);
-                        const partialMatches = people.filter(name =>
-                            name.toLowerCase().startsWith(personRef.toLowerCase())
-                        );
-                        const displayMatches = people.filter(name => {
-                            const info = personData[name];
-                            return info && info.displayName.toLowerCase().startsWith(personRef.toLowerCase());
-                        });
-
-                        // Check for ambiguity
-                        const allMatches = [...new Set([...exactMatches, ...partialMatches, ...displayMatches])];
-
-                        if (allMatches.length > 1) {
-                            const matchingNames = allMatches.map(name => personData[name].displayName).join(', ');
+                        if (validation.isAmbiguous) {
+                            const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
                             warnings.push({
                                 line: i + 1,
                                 text: line,
                                 error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
-                                    personRef: personRef,
+                                    personRef: validation.personRef,
                                     matchingNames: matchingNames
                                 })
                             });
-                        } else if (allMatches.length === 0) {
+                        } else if (validation.notFound) {
                             warnings.push({
                                 line: i + 1,
                                 text: line,
                                 error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
-                                    personRef: personRef,
+                                    personRef: validation.personRef,
                                     errorMessage: CONSTANTS.MESSAGES.PERSON_NOT_FOUND
                                 })
                             });
@@ -1160,26 +1251,24 @@ Cristy
 
                 // Helper function to extract name and parts from a person string
                 function parsePersonName(personString) {
-                    // Look for numbers in the string (e.g., "David 3", "David (3)", "David-3", etc.)
+                    // Look for the first number in the string for parts count
                     const numberMatch = personString.match(/(\d+)/);
                     const parts = numberMatch ? parseInt(numberMatch[1]) : 1;
 
-                    // Remove the number and any surrounding punctuation/spaces for display name
-                    let displayName = personString;
-                    if (numberMatch) {
-                        // Remove the matched number and surrounding characters more carefully
-                        displayName = personString
-                            .replace(/\s*\(\s*\d+\s*\)\s*/g, ' ')  // Replace (3) with space
-                            .replace(/\s*-\s*\d+\s*/g, ' ')        // Replace -3 with space
-                            .replace(/\s+\d+\s*$/g, '')           // Remove trailing number
-                            .replace(/^\s*\d+\s+/g, '')           // Remove leading number
-                            .replace(/\s+/g, ' ')                 // Normalize multiple spaces
-                            .trim();
-                    }
+                    // Remove ALL numbers from the display name, regardless of format
+                    let displayName = personString.replace(/\d+/g, '').trim();
 
-                    // Fallback to original string if displayName is empty
+                    // Clean up any leftover punctuation and spaces
+                    displayName = displayName
+                        .replace(/\s*\(\s*\)\s*/g, ' ')    // Remove empty parentheses
+                        .replace(/\s*-\s*$/g, '')          // Remove trailing hyphens
+                        .replace(/^\s*-\s*/g, '')          // Remove leading hyphens
+                        .replace(/\s+/g, ' ')              // Normalize multiple spaces
+                        .trim();
+
+                    // Fallback to original string if displayName is empty after number removal
                     if (!displayName) {
-                        displayName = personString.replace(/\d+/g, '').trim() || personString;
+                        displayName = personString;
                     }
 
                     return {
@@ -1195,10 +1284,14 @@ Cristy
                 for (const line of lines) {
                     if (line === '') continue;
 
-                    const expenseMatch = line.match(/^(-?\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+                    const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
                     const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
 
                     if (!expenseMatch && startsWithLetter && line.length > 0) {
+                        // Skip names with forbidden characters
+                        if (line.includes('-') || line.includes('>')) {
+                            continue;
+                        }
                         const personInfo = parsePersonName(line);
                         allNames.push(line);
                         personData[line] = personInfo;
@@ -1222,8 +1315,8 @@ Cristy
                         continue;
                     }
 
-                    // Enhanced regex to capture numbers with various formats, including negative numbers
-                    const expenseMatch = line.match(/^(-?\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+                    // Enhanced regex to capture numbers with various formats (positive only)
+                    const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
 
                     if (expenseMatch && currentPerson) {
                         // Parse transaction (expense or settlement)
@@ -1231,7 +1324,7 @@ Cristy
                         const amount = parseNumber(expenseMatch[1]);
                         const description = line.substring(expenseMatch[0].length).trim();
 
-                        if (!isNaN(amount) && allNames.length > 0) {
+                        if (!isNaN(amount) && amount > 0 && allNames.length > 0) {
                             let finalTransaction;
 
                             if (parsedTransaction) {
@@ -1240,21 +1333,13 @@ Cristy
                                     ...parsedTransaction,
                                     paidBy: currentPerson
                                 };
-                            } else if (amount >= 0) {
-                                // Default positive amounts to be split among all people
+                            } else {
+                                // Default amounts to be split among all people
                                 finalTransaction = {
                                     type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
                                     amount: amount,
                                     description: description,
                                     sharedWith: allNames,
-                                    paidBy: currentPerson
-                                };
-                            } else {
-                                // Negative amount without specific recipient - treat as simple settlement
-                                finalTransaction = {
-                                    type: CONSTANTS.TRANSACTION_TYPES.SETTLEMENT,
-                                    amount: Math.abs(amount),
-                                    description: description,
                                     paidBy: currentPerson
                                 };
                             }
@@ -1278,6 +1363,11 @@ Cristy
                         // Check if this line could be a person's name (starts with letter)
                         const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
                         if (startsWithLetter && line.length > 0) {
+                            // Skip names with forbidden characters
+                            if (line.includes('-') || line.includes('>')) {
+                                currentPerson = null;
+                                continue;
+                            }
                             // This is a person's name
                             currentPerson = line;
                             if (!people[currentPerson]) {
@@ -1449,31 +1539,28 @@ Cristy
                     .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
                     .reduce((sum, transaction) => sum + transaction.amount, 0);
 
-                // Calculate total settlements from settlement transactions only
-                const totalSettlements = currentTransactions
-                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT)
-                    .reduce((sum, transaction) => sum + transaction.amount, 0);
-
                 // Calculate fair shares using the helper function
                 const fairShares = calculateFairShares(names, currentTransactions, currentPeopleData);
 
+                // Get settlement transactions (completed settlements)
+                const settlementTransactions = currentTransactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
+
                 let text = '';
 
-                // Use the already formatted input text instead of regenerating it
-                const formattedInputText = formatInputText();
-                if (formattedInputText) {
-                    text += CONSTANTS.MESSAGES.TRANSACTIONS_SECTION + '\n';
-                    text += formattedInputText + '\n';
+                // BLOCK 1: EXPENSES (expenses only, no settlements)
+                const paymentsText = formatPaymentsText();
+                if (paymentsText) {
+                    text += `*${CONSTANTS.MESSAGES.EXPENSES.toUpperCase()}*\n`;
+                    text += paymentsText + '\n';
                 }
 
-                // Add summary
+                // BLOCK 2: COSTS (names and their fair share totals)
                 if (totalExpenses === 0) {
-                    text += '\n' + CONSTANTS.MESSAGES.EXPENSES_SECTION + '\n';
+                    text += `\n*${CONSTANTS.MESSAGES.COSTS.toUpperCase()}*\n`;
                 } else {
-                    text += '\n' + CONSTANTS.MESSAGES.EXPENSES_SECTION + ' = ' + formatNumber(totalExpenses) + '\n';
+                    text += `\n*${CONSTANTS.MESSAGES.COSTS.toUpperCase()}* = ${formatNumber(totalExpenses)}\n`;
                 }
                 names.forEach(name => {
-                    const personTotal = currentPeopleData[name] ? currentPeopleData[name].total || 0 : 0;
                     const personShare = fairShares[name] || 0;
                     const person = currentPeopleData[name];
                     const displayName = person ? person.displayName : name;
@@ -1481,23 +1568,39 @@ Cristy
                     text += `${formatPersonWithParts(displayName, parts)} = ${formatNumber(personShare)}\n`;
                 });
 
-                // Add settlements
-                if (totalSettlements === 0) {
-                    text += '\n' + CONSTANTS.MESSAGES.SETTLEMENTS_SECTION + '\n';
-                } else {
-                    text += '\n' + CONSTANTS.MESSAGES.SETTLEMENTS_SECTION + ' = ' + formatNumber(totalSettlements) + '\n';
-                }
+                // BLOCK 3: SETTLEMENTS (active settlements + completed settlements)
+                // Dynamic header: "*ALL SETTLED*" if no active settlements, "*SETTLEMENTS*" if there are active ones
+                const settlementsHeader = (totalExpenses !== 0 && currentSettlements.length === 0)
+                    ? `*${CONSTANTS.MESSAGES.ALL_SETTLED.toUpperCase()}*`
+                    : `*${CONSTANTS.MESSAGES.SETTLEMENTS.toUpperCase()}*`;
+
+                text += '\n' + settlementsHeader + '\n';
+
+                // First show active settlements that still need to be done
                 if (totalExpenses === 0) {
-                  text += CONSTANTS.MESSAGES.NOTHING_TO_SETTLE + '\n';
-                } else if ( currentSettlements.length === 0) {
-                    text += CONSTANTS.MESSAGES.ALL_SETTLED + '\n';
-                } else {
+                    text += CONSTANTS.MESSAGES.NOTHING_TO_SETTLE + '\n';
+                } else if (currentSettlements.length > 0) {
                     currentSettlements.forEach(settlement => {
                         const fromPerson = currentPeopleData[settlement.from];
                         const toPerson = currentPeopleData[settlement.to];
                         const fromName = fromPerson ? fromPerson.displayName : settlement.from;
                         const toName = toPerson ? toPerson.displayName : settlement.to;
                         text += formatTemplate(CONSTANTS.MESSAGES.OWES_TEMPLATE, {
+                            fromName: fromName,
+                            amount: formatNumber(settlement.amount),
+                            toName: toName
+                        }) + '\n';
+                    });
+                }
+
+                // Then show completed settlements (from settlement transactions)
+                if (settlementTransactions.length > 0) {
+                    settlementTransactions.forEach(settlement => {
+                        const fromPerson = currentPeopleData[settlement.paidBy];
+                        const toPerson = currentPeopleData[settlement.settleTo];
+                        const fromName = fromPerson ? fromPerson.displayName : settlement.paidBy;
+                        const toName = toPerson ? toPerson.displayName : settlement.settleTo;
+                        text += formatTemplate(CONSTANTS.MESSAGES.PAID_TEMPLATE, {
                             fromName: fromName,
                             amount: formatNumber(settlement.amount),
                             toName: toName
@@ -1588,12 +1691,12 @@ Cristy
                                 let formattedAmount, description = transaction.description || '';
 
                                 if (transaction.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT) {
-                                    // Settlement: negative amount with recipient
-                                    formattedAmount = formatNumber(-transaction.amount);
+                                    // Settlement: amount > recipient format
+                                    formattedAmount = formatNumber(transaction.amount);
                                     if (transaction.settleTo) {
                                         const recipientData = currentPeopleData[transaction.settleTo];
                                         const recipientName = recipientData ? recipientData.displayName : transaction.settleTo;
-                                        description = description ? `${description} - ${recipientName}` : `- ${recipientName}`;
+                                        description = `> ${recipientName}`;
                                     }
                                 } else {
                                     // Expense: positive amount
@@ -1637,6 +1740,81 @@ Cristy
                 return formattedText.trim();
             } catch (error) {
                 console.error('Error formatting input text:', error);
+                return '';
+            }
+        }
+
+        // Helper function to format only expenses (no settlements) for PAYMENTS block
+        function formatPaymentsText() {
+            try {
+                const names = Object.keys(currentPeopleData || {});
+                if (names.length === 0) return '';
+
+                let formattedText = '';
+
+                // Calculate maximum width for amounts across all expense transactions only
+                let maxWidth = 0;
+                currentTransactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE).forEach(transaction => {
+                    const width = formatNumber(transaction.amount).length;
+                    if (width > maxWidth) maxWidth = width;
+                });
+
+                // Ensure minimum width for proper alignment
+                if (maxWidth === 0) maxWidth = 8;
+
+                // Format expenses by person using transaction data (EXPENSES ONLY)
+                names.forEach(name => {
+                    const person = currentPeopleData[name];
+                    const displayName = person ? person.displayName : name;
+                    const parts = person ? person.parts : 1;
+
+                    // Check if this person has any expense transactions
+                    const hasExpenses = currentTransactions.some(t =>
+                        t.paidBy === name && t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE
+                    );
+
+                    if (hasExpenses) {
+                        formattedText += `${formatPersonWithParts(displayName, parts)}\n`;
+
+                        // Use transactions to reconstruct the original format (EXPENSES ONLY)
+                        const processedTransactions = new Set();
+
+                        currentTransactions.forEach(transaction => {
+                            if (transaction.paidBy === name &&
+                                transaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE &&
+                                !processedTransactions.has(transaction)) {
+                                processedTransactions.add(transaction);
+
+                                let description = transaction.description || '';
+                                const formattedAmount = formatNumber(transaction.amount);
+
+                                // Check if this expense is split with specific people (not all)
+                                const allNames = Object.keys(currentPeopleData);
+                                const isSharedWithAll = transaction.sharedWith && transaction.sharedWith.length === allNames.length && transaction.sharedWith.every(p => allNames.includes(p));
+
+                                // Always add participant names unless split among all people
+                                if (!isSharedWithAll && transaction.sharedWith && transaction.sharedWith.length > 0) {
+                                    // Add participants to description
+                                    const participants = transaction.sharedWith.map(p => {
+                                        const participantData = currentPeopleData[p];
+                                        return participantData ? participantData.displayName : p;
+                                    }).join(', ');
+                                    description = description ? `${description} - ${participants}` : `- ${participants}`;
+                                }
+
+                                const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
+                                const fullDescription = description ? ` ${description}` : '';
+                                formattedText += `${paddedAmount}${fullDescription}\n`;
+                            }
+                        });
+
+                        formattedText += '\n';
+                    }
+                });
+
+                return formattedText.trim();
+            } catch (error) {
+                console.error('Error formatting payments text:', error);
                 return '';
             }
         }
@@ -1814,12 +1992,11 @@ Cristy
                     const totalAnimationClass = totalShouldAnimate ? 'slide-in' : '';
                     const totalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
 
-                    expensesHtml += `
-                        <div class="summary expenses-summary expenses-total ${totalAnimationClass}" ${totalAnimationStyle}>
-                            <span class="label">${CONSTANTS.MESSAGES.EXPENSES}</span>
-                            <span class="total">${formatNumber(totalExpenses)}</span>
-                        </div>`;
-
+                        expensesHtml += `
+                            <div class="summary expenses-summary expenses-total ${totalAnimationClass}" ${totalAnimationStyle}>
+                                <span class="label">${CONSTANTS.MESSAGES.COSTS}</span>
+                                <span class="total">${formatNumber(totalExpenses)}</span>
+                            </div>`;
                     if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
 
                     // Show individual fair share expenses (excluding settlements)
@@ -1834,32 +2011,39 @@ Cristy
                     });
 
                     // SETTLEMENTS SECTION
-                    // Settlement total - only show if there are settlements
+                    // Show settlements section if there are any settlements (active or completed)
                     if (totalSettlements !== 0 || currentSettlements.length > 0) {
                         const settlementTotalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
 
+                        // Dynamic title: "All settled!" if no active settlements, "Settlements" if there are active ones
+                        const sectionTitle = (totalExpenses !== 0 && currentSettlements.length === 0)
+                            ? CONSTANTS.MESSAGES.ALL_SETTLED
+                            : CONSTANTS.MESSAGES.SETTLEMENTS;
+
                         settlementsHtml += `
                             <div class="summary settlements-summary settlements-total ${totalAnimationClass}" ${settlementTotalAnimationStyle}>
-                                <span class="label">${CONSTANTS.MESSAGES.SETTLEMENTS}</span>
-                                <span class="total">${formatNumber(Math.abs(totalSettlements))}</span>
+                                <span class="label">${sectionTitle}</span>
                             </div>`;
 
                         if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
 
-                        // Show settlements
+                        // Show active settlements
                         if (totalExpenses !== 0 && currentSettlements.length > 0) {
                             currentSettlements.forEach((settlement, index) => {
                                 const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
                                 settlementsHtml += generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people);
                                 if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
                             });
-                        } else if (totalSettlements !== 0 && currentSettlements.length === 0) {
-                            // Show "all settled up" message when settlements total is not zero but no current settlements
-                            const allSettledAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
-                            settlementsHtml += `
-                                <div class="summary settlements-summary all-settled-up ${totalAnimationClass}" ${allSettledAnimationStyle}>
-                                    <span class="label">${CONSTANTS.MESSAGES.ALL_SETTLED}</span>
-                                </div>`;
+                        }
+
+                        // Show settlement log entries (completed settlements from textarea)
+                        const settlementTransactions = transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
+                        if (settlementTransactions.length > 0) {
+                            settlementTransactions.forEach((settlement, index) => {
+                                const shouldAnimate = shouldAnimateNewItems;
+                                settlementsHtml += generateSettlementLogHTML(settlement, shouldAnimate, animationDelay, people);
+                                if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
+                            });
                         }
                     }
 
@@ -1893,19 +2077,18 @@ Cristy
                     return;
                 }
 
+                // Get display names for the settlement
+                const fromPerson = currentPeopleData[settlement.from];
+                const toPerson = currentPeopleData[settlement.to];
+                const fromName = fromPerson ? fromPerson.displayName : settlement.from;
+                const toName = toPerson ? toPerson.displayName : settlement.to;
+
                 const textarea = document.getElementById('expenseInput');
                 const currentText = textarea.value;
 
-                // Create the payment line in the format: "-amount Settlement to recipient"
-                // Use display name consistently like in the settlement display
-                const toPerson = currentPeopleData[settlement.to];
-                const toDisplayName = toPerson ? toPerson.displayName : settlement.to;
+                // Create the payment line in the format: "amount > recipient"
                 const formattedAmount = formatNumber(Number(settlement.amount));
-                const settlementLine = formatTemplate(CONSTANTS.MESSAGES.PAYMENT_LINE_TEMPLATE, {
-                    amount: String(formattedAmount),
-                    settlementWord: CONSTANTS.MESSAGES.SETTLEMENT_WORD,
-                    toName: String(toDisplayName)
-                });
+                const settlementLine = `${formattedAmount} > ${toName}`;
 
                 // Find the payer's section and add the payment line
                 const lines = currentText.split('\n');
