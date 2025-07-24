@@ -534,7 +534,7 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     SETTLEMENT_ERROR: 'Error processing settlement. Try again.',
                     ALL_SETTLED: 'All settled!',
                     NOTHING_TO_SETTLE: 'Nothing to settle!',
-                    INVALID_NAME_CHARACTERS: 'Names cannot contain "-" or ">" characters as they have special meanings',
+
                     COPY_SUMMARY: 'COPY SUMMARY',
                     CLEAR: 'CLEAR',
                     SETTLED_BUTTON: 'SETTLED',
@@ -585,7 +585,7 @@ Cristy
                     SETTLEMENT_ERROR: 'Erro ao processar acerto. Tente novamente.',
                     ALL_SETTLED: 'Tudo acertado!',
                     NOTHING_TO_SETTLE: 'Nada para acertar!',
-                    INVALID_NAME_CHARACTERS: 'Nomes não podem conter os caracteres "-" ou ">" pois têm significados especiais',
+
                     COPY_SUMMARY: 'COPIAR RESUMO',
                     CLEAR: 'LIMPAR',
                     SETTLED_BUTTON: 'ACERTADO',
@@ -636,7 +636,7 @@ Cristy
                     SETTLEMENT_ERROR: 'Error al procesar la liquidación. Inténtelo de nuevo.',
                     ALL_SETTLED: '¡Todo liquidado!',
                     NOTHING_TO_SETTLE: '¡Nada que liquidar!',
-                    INVALID_NAME_CHARACTERS: 'Los nombres no pueden contener los caracteres "-" o ">" ya que tienen significados especiales',
+
                     COPY_SUMMARY: 'COPIAR RESUMEN',
                     CLEAR: 'LIMPIAR',
                     SETTLED_BUTTON: 'LIQUIDADO',
@@ -699,7 +699,7 @@ Cristy
                     SETTLEMENT_ERROR: strings.SETTLEMENT_ERROR,
                     ALL_SETTLED: strings.ALL_SETTLED,
                     NOTHING_TO_SETTLE: strings.NOTHING_TO_SETTLE,
-                    INVALID_NAME_CHARACTERS: strings.INVALID_NAME_CHARACTERS
+
                 };
             },
 
@@ -790,7 +790,7 @@ Cristy
                 wrapper.style.animationDelay = `${animationDelay}ms`;
             }
 
-            clone.querySelector('.label').textContent = escapeHtml(formatPersonWithParts(displayName, parts));
+            clone.querySelector('.label').textContent = formatPersonWithParts(displayName, parts);
             clone.querySelector('.total').textContent = formatNumber(fairShare);
 
             // Create a temporary div to get the outerHTML
@@ -822,9 +822,9 @@ Cristy
             clone.querySelector('.label').textContent = formatTemplate(
                 CONSTANTS.MESSAGES.OWES_TEMPLATE,
                 {
-                    fromName: escapeHtml(fromName),
+                    fromName: fromName,
                     amount: formatNumber(settlement.amount),
-                    toName: escapeHtml(toName)
+                    toName: toName
                 }
             );
 
@@ -862,9 +862,9 @@ Cristy
             clone.querySelector('.label').textContent = formatTemplate(
                 CONSTANTS.MESSAGES.PAID_TEMPLATE,
                 {
-                    fromName: escapeHtml(fromName),
+                    fromName: fromName,
                     amount: formatNumber(settlement.amount),
-                    toName: escapeHtml(toName)
+                    toName: toName
                 }
             );
 
@@ -1137,28 +1137,13 @@ Cristy
                 const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
 
                 if (!expenseMatch && startsWithLetter && line.length > 0) {
-                    // Check for forbidden characters in names
-                    if (line.includes('-') || line.includes('>')) {
-                        warnings.push({
-                            line: i + 1,
-                            text: line,
-                            error: CONSTANTS.MESSAGES.INVALID_NAME_CHARACTERS
-                        });
-                        continue; // Skip this line, don't add as a person
-                    }
-
                     people.push(line);
 
-                    // Parse person info for display name - remove ALL numbers
-                    let displayName = line.replace(/\d+/g, '').trim();
+                    // Remove all non-letter characters except spaces, keeping only letters and spaces
+                    let displayName = line.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
 
-                    // Clean up any leftover punctuation and spaces
-                    displayName = displayName
-                        .replace(/\s*\(\s*\)\s*/g, ' ')    // Remove empty parentheses
-                        .replace(/\s*-\s*$/g, '')          // Remove trailing hyphens
-                        .replace(/^\s*-\s*/g, '')          // Remove leading hyphens
-                        .replace(/\s+/g, ' ')              // Normalize multiple spaces
-                        .trim();
+                    // Normalize multiple spaces
+                    displayName = displayName.replace(/\s+/g, ' ').trim();
 
                     if (!displayName) {
                         displayName = line;
@@ -1255,18 +1240,13 @@ Cristy
                     const numberMatch = personString.match(/(\d+)/);
                     const parts = numberMatch ? parseInt(numberMatch[1]) : 1;
 
-                    // Remove ALL numbers from the display name, regardless of format
-                    let displayName = personString.replace(/\d+/g, '').trim();
+                    // Remove all non-letter characters except spaces, keeping only letters and spaces
+                    let displayName = personString.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
 
-                    // Clean up any leftover punctuation and spaces
-                    displayName = displayName
-                        .replace(/\s*\(\s*\)\s*/g, ' ')    // Remove empty parentheses
-                        .replace(/\s*-\s*$/g, '')          // Remove trailing hyphens
-                        .replace(/^\s*-\s*/g, '')          // Remove leading hyphens
-                        .replace(/\s+/g, ' ')              // Normalize multiple spaces
-                        .trim();
+                    // Normalize multiple spaces
+                    displayName = displayName.replace(/\s+/g, ' ').trim();
 
-                    // Fallback to original string if displayName is empty after number removal
+                    // Fallback to original string if displayName is empty after cleaning
                     if (!displayName) {
                         displayName = personString;
                     }
@@ -1288,10 +1268,6 @@ Cristy
                     const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
 
                     if (!expenseMatch && startsWithLetter && line.length > 0) {
-                        // Skip names with forbidden characters
-                        if (line.includes('-') || line.includes('>')) {
-                            continue;
-                        }
                         const personInfo = parsePersonName(line);
                         allNames.push(line);
                         personData[line] = personInfo;
@@ -1363,11 +1339,6 @@ Cristy
                         // Check if this line could be a person's name (starts with letter)
                         const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
                         if (startsWithLetter && line.length > 0) {
-                            // Skip names with forbidden characters
-                            if (line.includes('-') || line.includes('>')) {
-                                currentPerson = null;
-                                continue;
-                            }
                             // This is a person's name
                             currentPerson = line;
                             if (!people[currentPerson]) {
