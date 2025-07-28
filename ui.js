@@ -926,7 +926,7 @@ function formatPaymentsText() {
     }
 }
 
-function copyToClipboard() {
+function copySummary() {
     try {
         const names = Object.keys(currentPeopleData);
         if (names.length === 0) return;
@@ -949,17 +949,13 @@ function copyToClipboard() {
         // Also format and update the input text
         TextareaUtils.applyFormattedText();
 
-        // Use the modern clipboard API
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(textSummary).then(() => {
-                showCopySuccess();
-            }).catch(err => {
-                console.error('Failed to copy with clipboard API:', err);
-                alert(LOCALE.getString('COPY_ERROR'));
-            });
-        } else {
+        // Use the copyToClipboard function from lib.js
+        copyToClipboard(textSummary).then(() => {
+            showCopySuccess();
+        }).catch(err => {
+            console.error('Failed to copy:', err);
             alert(LOCALE.getString('COPY_ERROR'));
-        }
+        });
     } catch (error) {
         ErrorHandler.handleUIError(error, LOCALE.getString('COPY_ERROR'));
     }

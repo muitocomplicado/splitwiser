@@ -834,6 +834,26 @@ const CalculationLogic = {
     }
 };
 
+// Copy text to clipboard with fallback support
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+        return Promise.resolve();
+    }
+}
+
 // Format template strings with placeholder replacements
 // Supports placeholders like {name}, {amount}, etc.
 function formatTemplate(template, replacements) {

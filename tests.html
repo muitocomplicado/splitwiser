@@ -40,6 +40,11 @@
         .test-name {
             font-weight: bold;
             margin-bottom: 3px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .test-name:hover {
+            text-decoration: underline;
         }
         .test-result {
             font-size: 0.9em;
@@ -49,6 +54,11 @@
             color: #d32f2f;
             font-size: 0.9em;
             margin-top: 3px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .test-error:hover {
+            text-decoration: underline;
         }
         .summary {
             background: #333;
@@ -67,6 +77,42 @@
         }
         .summary.has-failures:hover {
             background: #d32f2f;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1a1a1a;
+                color: #e0e0e0;
+            }
+            .test-suite {
+                background: #2d2d2d;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            }
+            .test-suite h2 {
+                color: #e0e0e0;
+                border-bottom-color: #444;
+            }
+            .test-case {
+                border-left-color: #555;
+            }
+            .test-case.pass {
+                background-color: #1b3d1b;
+            }
+            .test-case.fail {
+                background-color: #3d1b1b;
+            }
+            .test-result {
+                color: #b0b0b0;
+            }
+            .test-error {
+                color: #ff6b6b;
+            }
+            .test-name:hover {
+                text-decoration: underline;
+            }
+            .test-error:hover {
+                text-decoration: underline;
+            }
         }
     </style>
 </head>
@@ -190,6 +236,7 @@
                         const nameDiv = document.createElement('div');
                         nameDiv.className = 'test-name';
                         nameDiv.textContent = test.name;
+                        nameDiv.onclick = () => copyToClipboard(test.name);
                         testDiv.appendChild(nameDiv);
 
                         try {
@@ -211,6 +258,7 @@
                             const errorDiv = document.createElement('div');
                             errorDiv.className = 'test-error';
                             errorDiv.textContent = error.message;
+                            errorDiv.onclick = () => copyToClipboard(`${test.name}\n✗ FAIL\n${error.message}`);
                             testDiv.appendChild(errorDiv);
                         }
 
@@ -240,6 +288,8 @@
                 firstFailure.scrollIntoView({ behavior: 'auto', block: 'start' });
             }
         }
+
+
 
         // NumberLogic Tests
         test.suite('NumberLogic.parseNumber', () => {
