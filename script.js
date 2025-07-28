@@ -111,12 +111,11 @@ const CONSTANTS = {
             CLEAR: 'CLEAR',
             SETTLED_BUTTON: 'SETTLED',
             ERROR_GENERATING_SUMMARY: 'Error generating summary',
-             PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
+            PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
 
 David
 18.11 Toll (by default split among all)
 1200.00 Hotel (can use period or comma)
-10% Service fee (percentage applied to total)
 
 Ana 3 (group of three, will have larger share in the split)
 45 Restaurant (no need to add cents)
@@ -125,6 +124,10 @@ Ana 3 (group of three, will have larger share in the split)
 Cristy
 50 (description optional)
 125.75 Shopping - C,A (can use only initials)
+
+Restaurante! (removed from the split)
+150 (shared by David, Ana and Cristy)
+10% service fee (percentage applied to total)
 `                },
         'pt-BR': {
             SETTLED_TEXT: 'ACERTADO',
@@ -153,12 +156,11 @@ Cristy
             CLEAR: 'LIMPAR',
             SETTLED_BUTTON: 'ACERTADO',
             ERROR_GENERATING_SUMMARY: 'Erro ao gerar resumo',
-             PLACEHOLDER: `ADICIONE DESPESAS NO FORMATO:
+            PLACEHOLDER: `ADICIONE DESPESAS NO FORMATO:
 
 David
 18,11 Pedágio (por padrão dividido entre todos)
 1.200,00 Hotel (pode usar ponto ou vírgula)
-10% Taxa de serviço (porcentagem aplicada ao total)
 
 Ana 3 (grupo de três, terá parte maior na divisão)
 45 Restaurante (não precisa colocar centavos)
@@ -167,6 +169,10 @@ Ana 3 (grupo de três, terá parte maior na divisão)
 Cristy
 50 (descrição opcional)
 125,75 Compras - C,A (pode usar somente iniciais)
+
+Restaurante! (removido da divisão)
+150 (dividido por David, Ana e Cristy)
+10% taxa de serviço (porcentagem aplicada ao total)
 `                },
         'es': {
             SETTLED_TEXT: 'LIQUIDADO',
@@ -195,12 +201,11 @@ Cristy
             CLEAR: 'LIMPIAR',
             SETTLED_BUTTON: 'LIQUIDADO',
             ERROR_GENERATING_SUMMARY: 'Error al generar resumen',
-             PLACEHOLDER: `AGREGUE GASTOS EN EL FORMATO:
+            PLACEHOLDER: `AGREGUE GASTOS EN EL FORMATO:
 
 David
 18,11 Peaje (por defecto dividido entre todos)
 1.200,00 Hotel (puede usar punto o coma)
-10% Cargo por servicio (porcentaje aplicado al total)
 
 Ana 3 (grupo de tres, tendrá mayor parte en la división)
 45 Restaurante (no necesita poner centavos)
@@ -209,6 +214,10 @@ Ana 3 (grupo de tres, tendrá mayor parte en la división)
 Cristy
 50 (descripción opcional)
 125,75 Compras - C,A (puede usar solo iniciales)
+
+Restaurante! (removido de la división)
+150 (dividido por David, Ana y Cristy)
+10% cargo por servicio (porcentaje aplicado al total)
 `                }
     },
 
@@ -373,10 +382,7 @@ function generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAn
 
 // Utility function to generate settlement HTML
 function generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people) {
-    const fromPerson = people[settlement.from];
-    const toPerson = people[settlement.to];
-    const fromName = fromPerson ? fromPerson.displayName : settlement.from;
-    const toName = toPerson ? toPerson.displayName : settlement.to;
+    const { fromName, toName } = getSettlementNames(settlement, people);
 
     const template = document.getElementById('settlement-template');
     const clone = template.content.cloneNode(true);
@@ -426,10 +432,7 @@ function generateSettlementLogHTML(settlement, shouldAnimate, animationDelay, pe
     }
 
     // Get display names for the settlement
-    const fromPerson = people[settlement.paidBy];
-    const toPerson = people[settlement.settleTo];
-    const fromName = fromPerson ? fromPerson.displayName : settlement.paidBy;
-    const toName = toPerson ? toPerson.displayName : settlement.settleTo;
+    const { fromName, toName } = getSettlementNames(settlement, people, 'paidBy', 'settleTo');
 
     clone.querySelector('.label').textContent = formatTemplate(
         CONSTANTS.MESSAGES.PAID_TEMPLATE,
@@ -731,6 +734,20 @@ function formatPersonWithParts(displayName, parts) {
     return displayName;
 }
 
+// Helper function to clean person name for settlements (removes !)
+function cleanNameForSettlement(displayName) {
+    return displayName ? displayName.replace(/!$/, '') : displayName;
+}
+
+// Utility function to get clean settlement names
+function getSettlementNames(settlement, people, fromKey = 'from', toKey = 'to') {
+    const fromPerson = people[settlement[fromKey]];
+    const toPerson = people[settlement[toKey]];
+    const fromName = cleanNameForSettlement(fromPerson ? fromPerson.displayName : settlement[fromKey]);
+    const toName = cleanNameForSettlement(toPerson ? toPerson.displayName : settlement[toKey]);
+    return { fromName, toName };
+}
+
 function validateExpenses(text) {
     const lines = text.split('\n').map(line => line.trim());
     const warnings = [];
@@ -749,14 +766,26 @@ function validateExpenses(text) {
         if (!expenseMatch && startsWithLetter && line.length > 0) {
             people.push(line);
 
+            // Use the same parsing logic as parsePersonName
+            const isExcluded = line.includes('!');
+
+            // Remove ! from the string for processing
+            const cleanedString = line.replace(/!/g, '');
+
             // Remove all non-letter characters except spaces, keeping only letters and spaces
-            let displayName = line.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
+            let displayName = cleanedString.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
 
             // Normalize multiple spaces
             displayName = displayName.replace(/\s+/g, ' ').trim();
 
+            // Fallback: if displayName is empty, use the cleaned string without numbers
             if (!displayName) {
-                displayName = line;
+                displayName = cleanedString.replace(/\d+/g, '').trim();
+            }
+
+            // Always format as Name! if excluded, regardless of original ! placement
+            if (isExcluded) {
+                displayName = displayName + '!';
             }
 
             // Check for case-insensitive duplicate names
@@ -857,25 +886,37 @@ function parseExpenses(text) {
 
         // Helper function to extract name and parts from a person string
         function parsePersonName(personString) {
+            // Check for ! anywhere in the string (excluded from shared expenses)
+            const isExcluded = personString.includes('!');
+
+            // Remove ! from the string for processing
+            const cleanedString = personString.replace(/!/g, '');
+
             // Look for the first number in the string for parts count
-            const numberMatch = personString.match(/(\d+)/);
+            const numberMatch = cleanedString.match(/(\d+)/);
             const parts = numberMatch ? parseInt(numberMatch[1]) : 1;
 
             // Remove all non-letter characters except spaces, keeping only letters and spaces
-            let displayName = personString.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
+            let displayName = cleanedString.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
 
             // Normalize multiple spaces
             displayName = displayName.replace(/\s+/g, ' ').trim();
 
-            // Fallback to original string if displayName is empty after cleaning
+            // Fallback: if displayName is empty, use the cleaned string without numbers
             if (!displayName) {
-                displayName = personString;
+                displayName = cleanedString.replace(/\d+/g, '').trim();
+            }
+
+            // Always format as Name! if excluded, regardless of original ! placement
+            if (isExcluded) {
+                displayName = displayName + '!';
             }
 
             return {
                 displayName: displayName,
                 parts: parts,
-                originalName: personString
+                originalName: personString,
+                isExcluded: isExcluded
             };
         }
 
@@ -911,7 +952,8 @@ function parseExpenses(text) {
                 expenses: [],
                 total: 0,
                 displayName: personData[name].displayName,
-                parts: personData[name].parts
+                parts: personData[name].parts,
+                isExcluded: personData[name].isExcluded
             };
         });
 
@@ -1013,11 +1055,19 @@ function calculateFairShares(names, transactions, peopleData) {
     const expenseTransactions = getExpenseTransactions(transactions);
 
     expenseTransactions.forEach(transaction => {
-        const { amount, sharedWith } = transaction;
+        const { amount, sharedWith, paidBy } = transaction;
         const amountCents = Math.round(amount * 100);
 
         // Use all participants if sharedWith is empty, otherwise use specified participants
-        const participants = sharedWith.length === 0 ? names : sharedWith;
+        let participants = sharedWith.length === 0 ? names : sharedWith;
+
+        // If sharedWith is empty (default sharing), exclude people marked with ! (including the payer if excluded)
+        if (sharedWith.length === 0) {
+            participants = names.filter(name => {
+                const personData = peopleData[name];
+                return !personData?.isExcluded;
+            });
+        }
 
         // Calculate total parts for this expense
         const totalParts = participants.reduce((sum, person) => {
@@ -1070,7 +1120,15 @@ function calculateFairShares(names, transactions, peopleData) {
 
     // Apply percentage fees based on who they affect (sharedWith), not who paid them
     percentageFees.forEach(fee => {
-        const affectedPeople = fee.sharedWith.length === 0 ? names : fee.sharedWith;
+        let affectedPeople = fee.sharedWith.length === 0 ? names : fee.sharedWith;
+
+        // If sharedWith is empty (default sharing), exclude people marked with ! (including the payer if excluded)
+        if (fee.sharedWith.length === 0) {
+            affectedPeople = names.filter(name => {
+                const personData = peopleData[name];
+                return !personData?.isExcluded;
+            });
+        }
 
         affectedPeople.forEach(personName => {
             if (fairShares[personName] !== undefined) {
@@ -1227,7 +1285,13 @@ function generateTextSummary() {
         } else {
             text += `\n*${CONSTANTS.MESSAGES.COSTS.toUpperCase()}* = ${formatNumber(totalExpenses)}\n`;
         }
-        names.forEach(name => {
+        // Only show non-excluded people in costs
+        const nonExcludedNames = names.filter(name => {
+            const person = currentPeopleData[name];
+            return !person?.isExcluded;
+        });
+
+        nonExcludedNames.forEach(name => {
             const personShare = fairShares[name] || 0;
             const person = currentPeopleData[name];
             const displayName = person ? person.displayName : name;
@@ -1248,10 +1312,7 @@ function generateTextSummary() {
             text += CONSTANTS.MESSAGES.NOTHING_TO_SETTLE + '\n';
         } else if (currentSettlements.length > 0) {
             currentSettlements.forEach(settlement => {
-                const fromPerson = currentPeopleData[settlement.from];
-                const toPerson = currentPeopleData[settlement.to];
-                const fromName = fromPerson ? fromPerson.displayName : settlement.from;
-                const toName = toPerson ? toPerson.displayName : settlement.to;
+                const { fromName, toName } = getSettlementNames(settlement, currentPeopleData);
                 text += formatTemplate(CONSTANTS.MESSAGES.OWES_TEMPLATE, {
                     fromName: fromName,
                     amount: formatNumber(settlement.amount),
@@ -1263,10 +1324,7 @@ function generateTextSummary() {
         // Then show completed settlements (from settlement transactions)
         if (settlementTransactions.length > 0) {
             settlementTransactions.forEach(settlement => {
-                const fromPerson = currentPeopleData[settlement.paidBy];
-                const toPerson = currentPeopleData[settlement.settleTo];
-                const fromName = fromPerson ? fromPerson.displayName : settlement.paidBy;
-                const toName = toPerson ? toPerson.displayName : settlement.settleTo;
+                const { fromName, toName } = getSettlementNames(settlement, currentPeopleData, 'paidBy', 'settleTo');
                 text += formatTemplate(CONSTANTS.MESSAGES.PAID_TEMPLATE, {
                     fromName: fromName,
                     amount: formatNumber(settlement.amount),
@@ -1371,7 +1429,7 @@ function formatInputText() {
                             formattedAmount = formatNumber(transaction.amount);
                             if (transaction.settleTo) {
                                 const recipientData = currentPeopleData[transaction.settleTo];
-                                const recipientName = recipientData ? recipientData.displayName : transaction.settleTo;
+                                const recipientName = cleanNameForSettlement(recipientData ? recipientData.displayName : transaction.settleTo);
                                 description = `> ${recipientName}`;
                             }
                         } else if (transaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
@@ -1669,8 +1727,13 @@ function updateResults() {
                     </div>`;
             if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
 
-            // Show individual fair share expenses (excluding settlements)
-            names.forEach((name, index) => {
+            // Show individual fair share expenses (excluding settlements and excluded people)
+            const nonExcludedNames = names.filter(name => {
+                const person = people[name];
+                return !person?.isExcluded;
+            });
+
+            nonExcludedNames.forEach((name, index) => {
                 const fairShare = fairShares[name] || 0;
                 const displayName = people[name] ? people[name].displayName : name;
                 const parts = people[name] ? people[name].parts : 1;
@@ -1751,10 +1814,9 @@ function settlePayment(settlementIndex) {
         }
 
         // Get display names for the settlement
-        const fromPerson = currentPeopleData[settlement.from];
-        const toPerson = currentPeopleData[settlement.to];
-        const fromName = fromPerson ? fromPerson.displayName : settlement.from;
-        const toName = toPerson ? toPerson.displayName : settlement.to;
+        const { fromName, toName } = getSettlementNames(settlement, currentPeopleData);
+        // Note: fromName is used for display purposes and should keep the ! if present
+        const fromDisplayName = currentPeopleData[settlement.from]?.displayName || settlement.from;
 
         const textarea = document.getElementById('expenseInput');
         const currentText = textarea.value;
