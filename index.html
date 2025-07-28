@@ -495,7 +495,8 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
             // Transaction types
             TRANSACTION_TYPES: {
                 EXPENSE: 'expense',
-                SETTLEMENT: 'settlement'
+                SETTLEMENT: 'settlement',
+                PERCENTAGE: 'percentage'
             },
 
             // Localized strings
@@ -527,11 +528,12 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
                     CLEAR: 'CLEAR',
                     SETTLED_BUTTON: 'SETTLED',
                     ERROR_GENERATING_SUMMARY: 'Error generating summary',
-                    PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
+                     PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
 
 David
 18.11 Toll (by default split among all)
 1200.00 Hotel (can use period or comma)
+10% Service fee (percentage applied to total)
 
 Ana 3 (group of three, will have larger share in the split)
 45 Restaurant (no need to add cents)
@@ -540,8 +542,7 @@ Ana 3 (group of three, will have larger share in the split)
 Cristy
 50 (description optional)
 125.75 Shopping - C,A (can use only initials)
-`
-                },
+`                },
                 'pt-BR': {
                     SETTLED_TEXT: 'ACERTADO',
                     COPY_SUCCESS: 'COPIADO ✓',
@@ -569,11 +570,12 @@ Cristy
                     CLEAR: 'LIMPAR',
                     SETTLED_BUTTON: 'ACERTADO',
                     ERROR_GENERATING_SUMMARY: 'Erro ao gerar resumo',
-                    PLACEHOLDER: `ADICIONE DESPESAS NO FORMATO:
+                     PLACEHOLDER: `ADICIONE DESPESAS NO FORMATO:
 
 David
 18,11 Pedágio (por padrão dividido entre todos)
 1.200,00 Hotel (pode usar ponto ou vírgula)
+10% Taxa de serviço (porcentagem aplicada ao total)
 
 Ana 3 (grupo de três, terá parte maior na divisão)
 45 Restaurante (não precisa colocar centavos)
@@ -582,8 +584,7 @@ Ana 3 (grupo de três, terá parte maior na divisão)
 Cristy
 50 (descrição opcional)
 125,75 Compras - C,A (pode usar somente iniciais)
-`
-                },
+`                },
                 'es': {
                     SETTLED_TEXT: 'LIQUIDADO',
                     COPY_SUCCESS: 'COPIADO ✓',
@@ -611,11 +612,12 @@ Cristy
                     CLEAR: 'LIMPIAR',
                     SETTLED_BUTTON: 'LIQUIDADO',
                     ERROR_GENERATING_SUMMARY: 'Error al generar resumen',
-                    PLACEHOLDER: `AGREGUE GASTOS EN EL FORMATO:
+                     PLACEHOLDER: `AGREGUE GASTOS EN EL FORMATO:
 
 David
 18,11 Peaje (por defecto dividido entre todos)
 1.200,00 Hotel (puede usar punto o coma)
+10% Cargo por servicio (porcentaje aplicado al total)
 
 Ana 3 (grupo de tres, tendrá mayor parte en la división)
 45 Restaurante (no necesita poner centavos)
@@ -624,8 +626,7 @@ Ana 3 (grupo de tres, tendrá mayor parte en la división)
 Cristy
 50 (descripción opcional)
 125,75 Compras - C,A (puede usar solo iniciales)
-`
-                }
+`                }
             },
 
             // Helper function to get localized string
@@ -693,7 +694,7 @@ Cristy
             // Initialize empty sections on page load
             const expensesDiv = document.getElementById('expenses-results');
             const settlementsDiv = document.getElementById('settlements-results');
-            
+
             expensesDiv.innerHTML = getEmptyExpensesHTML();
             settlementsDiv.innerHTML = getEmptySettlementsHTML();
         }
@@ -716,11 +717,11 @@ Cristy
                 console.error('Processing Error:', error);
                 const expensesDiv = document.getElementById('expenses-results');
                 const settlementsDiv = document.getElementById('settlements-results');
-                
+
                 // Show empty sections instead of clearing completely
                 expensesDiv.innerHTML = getEmptyExpensesHTML();
                 settlementsDiv.innerHTML = getEmptySettlementsHTML();
-                
+
                 setButtonVisibility(false);
                 resetGlobalState();
             },
@@ -915,9 +916,50 @@ Cristy
         }
 
         function parseTransaction(expenseLine, allNames, personData) {
-            // Look for settlement pattern: amount > person (settlement format)
-            const settlementMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
+            // Helper function to resolve participant names
+            function resolveParticipants(peopleStr) {
+                const peopleNames = peopleStr.split(',').map(p => p.trim());
+                const resolvedPeople = [];
 
+                for (const personRef of peopleNames) {
+                    const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
+                    if (resolvedPerson) {
+                        resolvedPeople.push(resolvedPerson);
+                    }
+                }
+
+                return resolvedPeople;
+            }
+
+            // Try percentage fee pattern: percentage% description [- participants]
+            const percentageMatch = expenseLine.match(/^(\d+(?:[.,]\d+)?)\s*%\s*(.*)$/);
+            if (percentageMatch) {
+                const percentage = parseNumber(percentageMatch[1]);
+                const restOfLine = percentageMatch[2].trim();
+
+                // Check if there are participants specified
+                const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
+                const description = participantMatch ? participantMatch[1].trim() : restOfLine;
+                const participantsStr = participantMatch ? participantMatch[2] : null;
+
+                if (!isNaN(percentage) && percentage > 0) {
+                    const sharedWith = participantsStr
+                        ? resolveParticipants(participantsStr)
+                        : allNames; // Apply to all if no specific participants
+
+                    if (sharedWith.length > 0) {
+                        return {
+                            type: CONSTANTS.TRANSACTION_TYPES.PERCENTAGE,
+                            percentage: percentage,
+                            description: description,
+                            sharedWith: sharedWith
+                        };
+                    }
+                }
+            }
+
+            // Try settlement pattern: amount > person
+            const settlementMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
             if (settlementMatch) {
                 const amount = parseNumber(settlementMatch[1]);
                 const personStr = settlementMatch[2].trim();
@@ -933,32 +975,30 @@ Cristy
                 }
             }
 
-            // Look for expense pattern: amount description - person1, person2, person3
-            const expenseMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
-
+            // Try expense pattern: amount [description] [- participants]
+            const expenseMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.*)$/);
             if (expenseMatch) {
                 const amount = parseNumber(expenseMatch[1]);
-                const description = expenseMatch[2].trim();
-                const peopleStr = expenseMatch[3].trim();
+                const restOfLine = expenseMatch[2].trim();
 
-                // Expense: positive amount
-                const peopleNames = peopleStr.split(',').map(p => p.trim());
-                const resolvedPeople = [];
+                // Check if there are participants specified
+                const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
+                const description = participantMatch ? participantMatch[1].trim() : restOfLine;
+                const participantsStr = participantMatch ? participantMatch[2] : null;
 
-                for (const personRef of peopleNames) {
-                    const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
-                    if (resolvedPerson) {
-                        resolvedPeople.push(resolvedPerson);
+                if (!isNaN(amount) && amount > 0) {
+                    const sharedWith = participantsStr
+                        ? resolveParticipants(participantsStr)
+                        : allNames; // Split among all if no specific participants
+
+                    if (sharedWith.length > 0) {
+                        return {
+                            type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
+                            amount: amount,
+                            description: description,
+                            sharedWith: sharedWith
+                        };
                     }
-                }
-
-                if (!isNaN(amount) && amount > 0 && resolvedPeople.length > 0) {
-                    return {
-                        type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
-                        amount: amount,
-                        description: description,
-                        sharedWith: resolvedPeople
-                    };
                 }
             }
 
@@ -1333,17 +1373,28 @@ Cristy
                             transactions.push(finalTransaction);
 
                             // Add to person's expenses list
-                            people[currentPerson].expenses.push({
-                                amount: amount,
-                                description: finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE && finalTransaction.sharedWith
+                            const expenseEntry = {
+                                description: (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE || finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) && finalTransaction.sharedWith
                                     ? formatTemplate(CONSTANTS.MESSAGES.EXPENSE_WITH_PARTICIPANTS_TEMPLATE, {
                                         description: finalTransaction.description,
                                         participants: finalTransaction.sharedWith.join(', ')
                                     })
                                     : finalTransaction.description,
                                 type: finalTransaction.type
-                            });
-                            people[currentPerson].total += amount;
+                            };
+
+                            if (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
+                                expenseEntry.percentage = finalTransaction.percentage;
+                            } else {
+                                expenseEntry.amount = amount;
+                            }
+
+                            people[currentPerson].expenses.push(expenseEntry);
+
+                            // Only add to total for non-percentage transactions (percentages are calculated later)
+                            if (finalTransaction.type !== CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
+                                people[currentPerson].total += amount;
+                            }
                         }
                     } else {
                         // Check if this line could be a person's name (starts with letter)
@@ -1426,10 +1477,26 @@ Cristy
                 });
             });
 
-            // Convert cents to dollars for final fair shares
+            // Convert cents to dollars for base fair shares
             const fairShares = {};
             names.forEach(name => {
                 fairShares[name] = totalOwed[name] / 100;
+            });
+
+            // Apply percentage fees to each person's total
+            const percentageFees = transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE);
+
+            // Apply percentage fees based on who they affect (sharedWith), not who paid them
+            percentageFees.forEach(fee => {
+                const affectedPeople = fee.sharedWith || names; // Default to all if no specific participants
+
+                affectedPeople.forEach(personName => {
+                    if (fairShares[personName] !== undefined) {
+                        const currentTotal = fairShares[personName];
+                        const feeAmount = (currentTotal * fee.percentage) / 100;
+                        fairShares[personName] += feeAmount;
+                    }
+                });
             });
 
             return fairShares;
@@ -1453,7 +1520,7 @@ Cristy
                     // Only count expenses toward what they paid
                     const expensesPaid = people[name].expenses
                         .filter(expense => expense.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
-                        .reduce((sum, expense) => sum + expense.amount, 0);
+                        .reduce((sum, expense) => sum + (expense.amount || 0), 0);
 
                     const totalShouldPay = fairShares[name];
                     balances[name] = expensesPaid - totalShouldPay;
@@ -1651,6 +1718,10 @@ Cristy
                         if (transaction && transaction.amount !== undefined) {
                             const width = formatNumber(transaction.amount).length;
                             if (width > maxWidth) maxWidth = width;
+                        } else if (transaction && transaction.percentage !== undefined) {
+                            // Handle percentage format width
+                            const width = `${transaction.percentage}%`.length;
+                            if (width > maxWidth) maxWidth = width;
                         }
                     });
                 }
@@ -1683,6 +1754,23 @@ Cristy
                                         const recipientData = currentPeopleData[transaction.settleTo];
                                         const recipientName = recipientData ? recipientData.displayName : transaction.settleTo;
                                         description = `> ${recipientName}`;
+                                    }
+                                } else if (transaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
+                                    // Percentage: percentage% description format
+                                    formattedAmount = `${transaction.percentage}%`;
+
+                                    // Check if this percentage is applied to specific people (not all)
+                                    const allNames = Object.keys(currentPeopleData);
+                                    const isAppliedToAll = transaction.sharedWith && transaction.sharedWith.length === allNames.length && transaction.sharedWith.every(p => allNames.includes(p));
+
+                                    // Add participant names unless applied to all people
+                                    if (!isAppliedToAll && transaction.sharedWith && transaction.sharedWith.length > 0) {
+                                        // Add participants to description
+                                        const participants = transaction.sharedWith.map(p => {
+                                            const participantData = currentPeopleData[p];
+                                            return participantData ? participantData.displayName : p;
+                                        }).join(', ');
+                                        description = description ? `${description} - ${participants}` : `- ${participants}`;
                                     }
                                 } else {
                                     // Expense: positive amount
