@@ -917,7 +917,13 @@ Cristy
 
         function parseTransaction(expenseLine, allNames, personData) {
             // Helper function to resolve participant names
+            // Returns [] if peopleStr is null/empty (meaning all participants)
+            // Returns array of resolved names if peopleStr is provided
             function resolveParticipants(peopleStr) {
+                if (!peopleStr || peopleStr.trim() === '') {
+                    return []; // Empty array means all participants
+                }
+
                 const peopleNames = peopleStr.split(',').map(p => p.trim());
                 const resolvedPeople = [];
 
@@ -943,18 +949,14 @@ Cristy
                 const participantsStr = participantMatch ? participantMatch[2] : null;
 
                 if (!isNaN(percentage) && percentage > 0) {
-                    const sharedWith = participantsStr
-                        ? resolveParticipants(participantsStr)
-                        : allNames; // Apply to all if no specific participants
+                    const sharedWith = resolveParticipants(participantsStr);
 
-                    if (sharedWith.length > 0) {
-                        return {
-                            type: CONSTANTS.TRANSACTION_TYPES.PERCENTAGE,
-                            percentage: percentage,
-                            description: description,
-                            sharedWith: sharedWith
-                        };
-                    }
+                    return {
+                        type: CONSTANTS.TRANSACTION_TYPES.PERCENTAGE,
+                        percentage: percentage,
+                        description: description,
+                        sharedWith: sharedWith
+                    };
                 }
             }
 
@@ -987,18 +989,14 @@ Cristy
                 const participantsStr = participantMatch ? participantMatch[2] : null;
 
                 if (!isNaN(amount) && amount > 0) {
-                    const sharedWith = participantsStr
-                        ? resolveParticipants(participantsStr)
-                        : allNames; // Split among all if no specific participants
+                    const sharedWith = resolveParticipants(participantsStr);
 
-                    if (sharedWith.length > 0) {
-                        return {
-                            type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
-                            amount: amount,
-                            description: description,
-                            sharedWith: sharedWith
-                        };
-                    }
+                    return {
+                        type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
+                        amount: amount,
+                        description: description,
+                        sharedWith: sharedWith
+                    };
                 }
             }
 
@@ -1365,7 +1363,7 @@ Cristy
                                     type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
                                     amount: amount,
                                     description: description,
-                                    sharedWith: allNames,
+                                    sharedWith: [], // empty array means all participants
                                     paidBy: currentPerson
                                 };
                             }
@@ -1374,7 +1372,7 @@ Cristy
 
                             // Add to person's expenses list
                             const expenseEntry = {
-                                description: (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE || finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) && finalTransaction.sharedWith
+                                description: (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE || finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) && finalTransaction.sharedWith.length > 0
                                     ? formatTemplate(CONSTANTS.MESSAGES.EXPENSE_WITH_PARTICIPANTS_TEMPLATE, {
                                         description: finalTransaction.description,
                                         participants: finalTransaction.sharedWith.join(', ')
@@ -1435,8 +1433,11 @@ Cristy
                 const { amount, sharedWith } = transaction;
                 const amountCents = Math.round(amount * 100);
 
+                // Use all participants if sharedWith is empty, otherwise use specified participants
+                const participants = sharedWith.length === 0 ? names : sharedWith;
+
                 // Calculate total parts for this expense
-                const totalParts = sharedWith.reduce((sum, person) => {
+                const totalParts = participants.reduce((sum, person) => {
                     const parts = peopleData[person] ? peopleData[person].parts : 1;
                     return sum + parts;
                 }, 0);
@@ -1445,7 +1446,7 @@ Cristy
                 let distributedCents = 0;
                 const distributions = [];
 
-                sharedWith.forEach(person => {
+                participants.forEach(person => {
                     const parts = peopleData[person] ? peopleData[person].parts : 1;
                     const personShareCents = Math.round((amountCents * parts) / totalParts);
 
@@ -1457,7 +1458,7 @@ Cristy
                 const difference = amountCents - distributedCents;
                 if (difference !== 0) {
                     // Add the difference to the person with the highest parts (most fair)
-                    const maxPartsParticipant = sharedWith.reduce((max, person) => {
+                    const maxPartsParticipant = participants.reduce((max, person) => {
                         const parts = peopleData[person] ? peopleData[person].parts : 1;
                         const maxParts = peopleData[max] ? peopleData[max].parts : 1;
                         return parts > maxParts ? person : max;
@@ -1486,7 +1487,7 @@ Cristy
 
             // Apply percentage fees based on who they affect (sharedWith), not who paid them
             percentageFees.forEach(fee => {
-                const affectedPeople = fee.sharedWith || names; // Default to all if no specific participants
+                const affectedPeople = fee.sharedWith.length === 0 ? names : fee.sharedWith;
 
                 affectedPeople.forEach(personName => {
                     if (fairShares[personName] !== undefined) {
@@ -1794,12 +1795,8 @@ Cristy
                                     // Percentage: percentage% description format
                                     formattedAmount = `${transaction.percentage}%`;
 
-                                    // Check if this percentage is applied to specific people (not all)
-                                    const allNames = Object.keys(currentPeopleData);
-                                    const isAppliedToAll = transaction.sharedWith && transaction.sharedWith.length === allNames.length && transaction.sharedWith.every(p => allNames.includes(p));
-
-                                    // Add participant names unless applied to all people
-                                    if (!isAppliedToAll && transaction.sharedWith && transaction.sharedWith.length > 0) {
+                                    // Add participant names only if applied to specific people (not all)
+                                    if (transaction.sharedWith.length > 0) {
                                         // Add participants to description
                                         const participants = transaction.sharedWith.map(p => {
                                             const participantData = currentPeopleData[p];
@@ -1811,12 +1808,8 @@ Cristy
                                     // Expense: positive amount
                                     formattedAmount = formatNumber(transaction.amount);
 
-                                    // Check if this expense is split with specific people (not all)
-                                    const allNames = Object.keys(currentPeopleData);
-                                    const isSharedWithAll = transaction.sharedWith && transaction.sharedWith.length === allNames.length && transaction.sharedWith.every(p => allNames.includes(p));
-
-                                    // Always add participant names unless split among all people
-                                    if (!isSharedWithAll && transaction.sharedWith && transaction.sharedWith.length > 0) {
+                                    // Add participant names only if split with specific people (not all)
+                                    if (transaction.sharedWith.length > 0) {
                                         // Add participants to description
                                         const participants = transaction.sharedWith.map(p => {
                                             const participantData = currentPeopleData[p];
@@ -1898,12 +1891,8 @@ Cristy
                                 let description = transaction.description || '';
                                 const formattedAmount = formatNumber(transaction.amount);
 
-                                // Check if this expense is split with specific people (not all)
-                                const allNames = Object.keys(currentPeopleData);
-                                const isSharedWithAll = transaction.sharedWith && transaction.sharedWith.length === allNames.length && transaction.sharedWith.every(p => allNames.includes(p));
-
-                                // Always add participant names unless split among all people
-                                if (!isSharedWithAll && transaction.sharedWith && transaction.sharedWith.length > 0) {
+                                // Add participant names only if split with specific people (not all)
+                                if (transaction.sharedWith.length > 0) {
                                     // Add participants to description
                                     const participants = transaction.sharedWith.map(p => {
                                         const participantData = currentPeopleData[p];
