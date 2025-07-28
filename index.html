@@ -1429,9 +1429,7 @@ Cristy
             });
 
             // Filter for expenses only and process them
-            const expenseTransactions = transactions.filter(t =>
-                t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE
-            );
+            const expenseTransactions = getExpenseTransactions(transactions);
 
             expenseTransactions.forEach(transaction => {
                 const { amount, sharedWith } = transaction;
@@ -1484,7 +1482,7 @@ Cristy
             });
 
             // Apply percentage fees to each person's total
-            const percentageFees = transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE);
+            const percentageFees = getPercentageTransactions(transactions);
 
             // Apply percentage fees based on who they affect (sharedWith), not who paid them
             percentageFees.forEach(fee => {
@@ -1517,17 +1515,24 @@ Cristy
 
                 // Start with what each person paid for expenses minus fair share
                 names.forEach(name => {
-                    // Only count expenses toward what they paid
+                    // Count base expenses paid
                     const expensesPaid = people[name].expenses
                         .filter(expense => expense.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
                         .reduce((sum, expense) => sum + (expense.amount || 0), 0);
 
+                    // Count percentage fees paid by this person
+                    const baseExpensesTotal = calculateBaseExpenses(transactions);
+                    const percentageFeesPaid = getPercentageTransactions(transactions)
+                        .filter(transaction => transaction.paidBy === name)
+                        .reduce((sum, transaction) => sum + (baseExpensesTotal * transaction.percentage / 100), 0);
+
+                    const totalPaid = expensesPaid + percentageFeesPaid;
                     const totalShouldPay = fairShares[name];
-                    balances[name] = expensesPaid - totalShouldPay;
+                    balances[name] = totalPaid - totalShouldPay;
                 });
 
                 // Apply existing settlements to adjust balances
-                transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT).forEach(settlement => {
+                getSettlementTransactions(transactions).forEach(settlement => {
                     if (settlement.settleTo) {
                         // Settlement from paidBy to settleTo
                         balances[settlement.paidBy] += settlement.amount; // Payer owes less
@@ -1575,23 +1580,53 @@ Cristy
             }
         }
 
+        // Utility functions for expense calculations
+        function calculateBaseExpenses(transactions) {
+            return getExpenseTransactions(transactions)
+                .reduce((sum, transaction) => sum + transaction.amount, 0);
+        }
 
+        function calculatePercentageFees(transactions, baseExpenses) {
+            return getPercentageTransactions(transactions)
+                .reduce((sum, transaction) => sum + (baseExpenses * transaction.percentage / 100), 0);
+        }
+
+        function calculateTotalExpenses(transactions) {
+            const baseExpenses = calculateBaseExpenses(transactions);
+            const percentageFees = calculatePercentageFees(transactions, baseExpenses);
+            return baseExpenses + percentageFees;
+        }
+
+        function calculateTotalSettlements(transactions) {
+            return getSettlementTransactions(transactions)
+                .reduce((sum, transaction) => sum + transaction.amount, 0);
+        }
+
+        function getExpenseTransactions(transactions) {
+            return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE);
+        }
+
+        function getSettlementTransactions(transactions) {
+            return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
+        }
+
+        function getPercentageTransactions(transactions) {
+            return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE);
+        }
 
         function generateTextSummary() {
             try {
                 const names = Object.keys(currentPeopleData);
                 if (names.length === 0) return '';
 
-                // Calculate total expenses from expense transactions only
-                const totalExpenses = currentTransactions
-                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
-                    .reduce((sum, transaction) => sum + transaction.amount, 0);
+                // Calculate total expenses using utility function
+                const totalExpenses = calculateTotalExpenses(currentTransactions);
 
                 // Calculate fair shares using the helper function
                 const fairShares = calculateFairShares(names, currentTransactions, currentPeopleData);
 
                 // Get settlement transactions (completed settlements)
-                const settlementTransactions = currentTransactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
+                const settlementTransactions = getSettlementTransactions(currentTransactions);
 
                 let text = '';
 
@@ -1829,7 +1864,7 @@ Cristy
 
                 // Calculate maximum width for amounts across all expense transactions only
                 let maxWidth = 0;
-                currentTransactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE).forEach(transaction => {
+                getExpenseTransactions(currentTransactions).forEach(transaction => {
                     const width = formatNumber(transaction.amount).length;
                     if (width > maxWidth) maxWidth = width;
                 });
@@ -2020,15 +2055,9 @@ Cristy
                 currentTransactions = transactions;
                 currentSettlements = calculateSettlements(people, transactions);
 
-                // Calculate total expenses from expense transactions only
-                const totalExpenses = transactions
-                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
-                    .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-                // Calculate total settlements from settlement transactions only
-                const totalSettlements = transactions
-                    .filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT)
-                    .reduce((sum, transaction) => sum + transaction.amount, 0);
+                // Calculate totals using utility functions
+                const totalExpenses = calculateTotalExpenses(transactions);
+                const totalSettlements = calculateTotalSettlements(transactions);
 
                 // Calculate fair share amounts using the helper function
                 const fairShares = calculateFairShares(names, transactions, people);
@@ -2110,7 +2139,7 @@ Cristy
                     }
 
                     // Show settlement log entries (completed settlements from textarea)
-                    const settlementTransactions = transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
+                    const settlementTransactions = getSettlementTransactions(transactions);
                     if (settlementTransactions.length > 0) {
                         settlementTransactions.forEach((settlement, index) => {
                             const shouldAnimate = shouldAnimateNewItems;
