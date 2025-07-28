@@ -57,7 +57,7 @@ const RefreshManager = {
                         // Explicitly exclude description
                     }))
             };
-            
+
             // Include settlements for settlement calculations
             if (type === 'settlements') {
                 dataToHash.settlements = settlements.map(s => ({
@@ -66,7 +66,7 @@ const RefreshManager = {
                     amount: s.amount
                 }));
             }
-            
+
             return JSON.stringify(dataToHash);
         } catch (error) {
             console.error('Error creating calculation hash:', error);
@@ -98,10 +98,10 @@ const RefreshManager = {
             // Create hashes for comparison - only include calculation-affecting data
             const newExpensesHash = this.createCalculationHash(people, transactions, 'expenses');
             const newSettlementsHash = this.createCalculationHash(people, transactions, 'settlements', settlements);
-            
+
             const currentExpensesHash = this.createCalculationHash(currentPeopleData, currentTransactions, 'expenses');
             const currentSettlementsHash = this.createCalculationHash(currentPeopleData, currentTransactions, 'settlements', currentSettlements);
-            
+
             const expensesChanged = newExpensesHash !== currentExpensesHash;
             const settlementsChanged = newSettlementsHash !== currentSettlementsHash;
 
@@ -140,15 +140,15 @@ const RefreshManager = {
     // Generate HTML for expenses section
     generateExpensesHTML(people, transactions, shouldAnimate) {
         const names = Object.keys(people);
-        
+
         // Handle empty state
         if (names.length === 0) {
             return getEmptyExpensesHTML();
         }
-        
+
         const totalExpenses = CalculationLogic.calculateTotalExpenses(transactions);
         const fairShares = CalculationLogic.calculateFairShares(names, transactions, people);
-        
+
         let expensesHtml = '';
         let expenseIndex = 0;
 
@@ -183,7 +183,7 @@ const RefreshManager = {
         if (Object.keys(people).length === 0) {
             return getEmptySettlementsHTML();
         }
-        
+
         const totalExpenses = CalculationLogic.calculateTotalExpenses(transactions);
         let settlementsHtml = '';
         let settlementIndex = 0;
@@ -226,28 +226,28 @@ const RefreshManager = {
     // Unified refresh execution
     executeRefresh(people, transactions, settlements, expensesDiv, settlementsDiv, inputText) {
         const refreshDecisions = this.getRefreshDecisions(people, transactions, settlements, inputText);
-        
+
         // If nothing changed, skip all updates
         if (refreshDecisions.skipAll) {
             return false;
         }
-        
+
         // Update stored data
         this.updateStoredData(people, transactions, settlements);
-        
+
         const shouldAnimate = refreshDecisions.isInitialLoad;
-        
+
         // Generate and update HTML based on decisions
         if (refreshDecisions.refreshExpenses) {
             const expensesHtml = this.generateExpensesHTML(people, transactions, shouldAnimate);
             expensesDiv.innerHTML = expensesHtml;
         }
-        
+
         if (refreshDecisions.refreshSettlements) {
             const settlementsHtml = this.generateSettlementsHTML(people, transactions, settlements, shouldAnimate);
             settlementsDiv.innerHTML = settlementsHtml;
         }
-        
+
         return true; // Indicates that some refresh occurred
     }
 };
@@ -314,24 +314,48 @@ const CONSTANTS = {
             CLEAR: 'CLEAR',
             SETTLED_BUTTON: 'SETTLED',
             ERROR_GENERATING_SUMMARY: 'Error generating summary',
-            PLACEHOLDER: `ADD EXPENSES IN THE FORMAT:
+            PLACEHOLDER: 'Add people and expenses...\n(see format guide below)',
 
-David
-18.11 Toll (by default split among all)
-1200.00 Hotel (can use period or comma)
+            // Format Guide Messages
+            FORMAT_GUIDE_TITLE: 'Format Guide',
+            FORMAT_GUIDE_PERSON_NAMES_NAME: 'Person names',
+            FORMAT_GUIDE_PERSON_NAMES_DESC: 'Start with a name on its own line. Expenses added below the name were paid by that person.',
+            FORMAT_GUIDE_PERSON_NAMES_EXAMPLE: 'David\n50 Dinner\n20 Drinks',
 
-Ana 3 (group of three, will have larger share in the split)
-45 Restaurant (no need to add cents)
-23 Lunch - David, Ana (split only between David and Ana)
+            FORMAT_GUIDE_GROUP_SIZE_NAME: 'Group size',
+            FORMAT_GUIDE_GROUP_SIZE_DESC: 'Optional number after the name. Proportional share of the split.',
+            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nMike (2)',
 
-Cristy
-50 (description optional)
-125.75 Shopping - C,A (can use only initials)
+            FORMAT_GUIDE_BASIC_EXPENSE_NAME: 'Basic expense',
+            FORMAT_GUIDE_BASIC_EXPENSE_DESC: 'Amount (with or without cents) with optional description.',
+            FORMAT_GUIDE_BASIC_EXPENSE_EXAMPLE: '25.50 Lunch\n45',
 
-Restaurante! (removed from the split)
-150 (shared by David, Ana and Cristy)
-10% service fee (percentage applied to total)
-`                },
+            FORMAT_GUIDE_PERCENTAGE_FEE_NAME: 'Percentage fee',
+            FORMAT_GUIDE_PERCENTAGE_FEE_DESC: 'Based on total expenses for that person.',
+            FORMAT_GUIDE_PERCENTAGE_FEE_EXAMPLE: '10% Service fee',
+
+            FORMAT_GUIDE_SPECIFIC_SPLIT_NAME: 'Specific split',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_DESC: 'Add comma separated names (or initials) after " - " to split the expense among them.',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Coffee - Mike\n50 Dinner - A, D',
+
+            FORMAT_GUIDE_EXCLUDE_NAME: 'Exclude from split',
+            FORMAT_GUIDE_EXCLUDE_DESC: 'Add ! after the name to be owed but not share the expense.',
+            FORMAT_GUIDE_EXCLUDE_EXAMPLE: 'Restaurant!\nReceipt!',
+
+            FORMAT_GUIDE_SETTLEMENT_NAME: 'Settlement',
+            FORMAT_GUIDE_SETTLEMENT_DESC: 'Register payments between people. You can use the buttons in the settlement section to speed up the process.',
+            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50.40 > Mike\n70 > Restaurant',
+
+            // Example Sections
+            EXAMPLE_FRIENDS_TRIP_TITLE: 'Friends Trip',
+            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gas\n18.11 Toll\n15 Snacks\n\nAna\n50.30 Dinner\n15 Coffee - Ana, Mike\n\nMike\n12 Parking\n60 Tickets',
+
+            EXAMPLE_FAMILY_DINNER_TITLE: 'Family Dinner',
+            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75.50 Vegetables\n30.75 Sides\n89.25 Meats\n\nMike 4\n45.25 Drinks\n10 Ice\n\nAna 5\n35 Dessert\n20 Supplies',
+
+            EXAMPLE_BILL_SPLIT_TITLE: 'Bill Split',
+            EXAMPLE_BILL_SPLIT_TEXT: 'Bill!\n30 Appetizers\n12 Drink - D\n12 Drink - M\n16 Entree - D\n18 Entree - M\n32 Entree - A\n10% Service fee\n\nAna 2\nDavid\nMike'
+        },
         'pt-BR': {
             SETTLED_TEXT: 'ACERTADO',
             COPY_SUCCESS: 'COPIADO ✓',
@@ -359,24 +383,48 @@ Restaurante! (removed from the split)
             CLEAR: 'LIMPAR',
             SETTLED_BUTTON: 'ACERTADO',
             ERROR_GENERATING_SUMMARY: 'Erro ao gerar resumo',
-            PLACEHOLDER: `ADICIONE DESPESAS NO FORMATO:
+            PLACEHOLDER: 'Adicione pessoas e gastos...\n(veja o guia de formato abaixo)',
 
-David
-18,11 Pedágio (por padrão dividido entre todos)
-1.200,00 Hotel (pode usar ponto ou vírgula)
+            // Format Guide Messages
+            FORMAT_GUIDE_TITLE: 'Guia de Formato',
+            FORMAT_GUIDE_PERSON_NAMES_NAME: 'Nomes de pessoas',
+            FORMAT_GUIDE_PERSON_NAMES_DESC: 'Comece com um nome em sua própria linha. Gastos adicionados abaixo do nome foram pagos por essa pessoa.',
+            FORMAT_GUIDE_PERSON_NAMES_EXAMPLE: 'David\n50 Jantar\n20 Bebidas',
 
-Ana 3 (grupo de três, terá parte maior na divisão)
-45 Restaurante (não precisa colocar centavos)
-23 Lanche - David, Ana (dividido somente entre David e Ana)
+            FORMAT_GUIDE_GROUP_SIZE_NAME: 'Tamanho do grupo',
+            FORMAT_GUIDE_GROUP_SIZE_DESC: 'Número opcional após o nome. Parte proporcional do rateio.',
+            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nMike (2)',
 
-Cristy
-50 (descrição opcional)
-125,75 Compras - C,A (pode usar somente iniciais)
+            FORMAT_GUIDE_BASIC_EXPENSE_NAME: 'Gasto básico',
+            FORMAT_GUIDE_BASIC_EXPENSE_DESC: 'Valor (com ou sem centavos) com descrição opcional.',
+            FORMAT_GUIDE_BASIC_EXPENSE_EXAMPLE: '25,50 Almoço\n45',
 
-Restaurante! (removido da divisão)
-150 (dividido por David, Ana e Cristy)
-10% taxa de serviço (porcentagem aplicada ao total)
-`                },
+            FORMAT_GUIDE_PERCENTAGE_FEE_NAME: 'Taxa percentual',
+            FORMAT_GUIDE_PERCENTAGE_FEE_DESC: 'Baseado no total de gastos para essa pessoa.',
+            FORMAT_GUIDE_PERCENTAGE_FEE_EXAMPLE: '10% Taxa de serviço',
+
+            FORMAT_GUIDE_SPECIFIC_SPLIT_NAME: 'Rateio específico',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_DESC: 'Adicione nomes separados por vírgula (ou iniciais) após " - " para dividir o gasto entre eles.',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Café - Mike\n50 Jantar - A, D',
+
+            FORMAT_GUIDE_EXCLUDE_NAME: 'Excluir do rateio',
+            FORMAT_GUIDE_EXCLUDE_DESC: 'Adicione ! após o nome para ser cobrado, mas não compartilhar o gasto.',
+            FORMAT_GUIDE_EXCLUDE_EXAMPLE: 'Restaurante!\nRecibo!',
+
+            FORMAT_GUIDE_SETTLEMENT_NAME: 'Acerto',
+            FORMAT_GUIDE_SETTLEMENT_DESC: 'Registre pagamentos entre pessoas. Você pode usar os botões na seção de acertos para agilizar o processo.',
+            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50,40 > Mike\n70 > Restaurante',
+
+            // Example Sections
+            EXAMPLE_FRIENDS_TRIP_TITLE: 'Viagem de Amigos',
+            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gasolina\n18,11 Pedágio\n15 Lanches\n\nAna\n50,30 Jantar\n15 Café - Ana, Mike\n\nMike\n12 Estacionamento\n60 Ingressos',
+
+            EXAMPLE_FAMILY_DINNER_TITLE: 'Jantar em Família',
+            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Legumes\n30,75 Acompanhamentos\n89,25 Carne\n\nMike 4\n45,25 Bebidas\n10 Gelo\n\nAna 5\n35 Sobremesa\n20 Suprimentos',
+
+            EXAMPLE_BILL_SPLIT_TITLE: 'Divisão de Conta',
+            EXAMPLE_BILL_SPLIT_TEXT: 'Conta!\n30 Aperitivos\n12 Bebida - D\n12 Bebida - M\n16 Prato - D\n18 Prato - M\n32 Prato - A\n10% Taxa de serviço\n\nAna 2\nDavid\nMike'
+        },
         'es': {
             SETTLED_TEXT: 'LIQUIDADO',
             COPY_SUCCESS: 'COPIADO ✓',
@@ -404,24 +452,48 @@ Restaurante! (removido da divisão)
             CLEAR: 'LIMPIAR',
             SETTLED_BUTTON: 'LIQUIDADO',
             ERROR_GENERATING_SUMMARY: 'Error al generar resumen',
-            PLACEHOLDER: `AGREGUE GASTOS EN EL FORMATO:
+            PLACEHOLDER: 'Agregue personas y gastos...\n(vea la guía de formato abajo)',
 
-David
-18,11 Peaje (por defecto dividido entre todos)
-1.200,00 Hotel (puede usar punto o coma)
+            // Format Guide Messages
+            FORMAT_GUIDE_TITLE: 'Guía de Formato',
+            FORMAT_GUIDE_PERSON_NAMES_NAME: 'Nombres de personas',
+            FORMAT_GUIDE_PERSON_NAMES_DESC: 'Comience con un nombre en su propia línea. Los gastos agregados debajo del nombre fueron pagados por esa persona.',
+            FORMAT_GUIDE_PERSON_NAMES_EXAMPLE: 'David\n45 Cena\n20 Bebidas',
 
-Ana 3 (grupo de tres, tendrá mayor parte en la división)
-45 Restaurante (no necesita poner centavos)
-23 Almuerzo - David, Ana (dividido solo entre David y Ana)
+            FORMAT_GUIDE_GROUP_SIZE_NAME: 'Tamaño del grupo',
+            FORMAT_GUIDE_GROUP_SIZE_DESC: 'Número opcional después del nombre. Parte proporcional de la división.',
+            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nMike (2)',
 
-Cristy
-50 (descripción opcional)
-125,75 Compras - C,A (puede usar solo iniciales)
+            FORMAT_GUIDE_BASIC_EXPENSE_NAME: 'Gasto básico',
+            FORMAT_GUIDE_BASIC_EXPENSE_DESC: 'Monto (con o sin centavos) con descripción opcional.',
+            FORMAT_GUIDE_BASIC_EXPENSE_EXAMPLE: '25,50 Almuerzo\n45',
 
-Restaurante! (removido de la división)
-150 (dividido por David, Ana y Cristy)
-10% cargo por servicio (porcentaje aplicado al total)
-`                }
+            FORMAT_GUIDE_PERCENTAGE_FEE_NAME: 'Tarifa porcentual',
+            FORMAT_GUIDE_PERCENTAGE_FEE_DESC: 'Basado en el total de gastos para esa persona.',
+            FORMAT_GUIDE_PERCENTAGE_FEE_EXAMPLE: '10% Tarifa de servicio',
+
+            FORMAT_GUIDE_SPECIFIC_SPLIT_NAME: 'División específica',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_DESC: 'Agregue nombres separados por coma (o iniciales) después de " - " para dividir el gasto entre ellos.',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Café - Mike\n50 Cena - A, D',
+
+            FORMAT_GUIDE_EXCLUDE_NAME: 'Excluir de la división',
+            FORMAT_GUIDE_EXCLUDE_DESC: 'Agregue ! después del nombre para ser adeudado pero no compartir el gasto.',
+            FORMAT_GUIDE_EXCLUDE_EXAMPLE: 'Restaurante!\nRecibo!',
+
+            FORMAT_GUIDE_SETTLEMENT_NAME: 'Liquidación',
+            FORMAT_GUIDE_SETTLEMENT_DESC: 'Registre pagos entre personas. Puede usar los botones en la sección de liquidaciones para acelerar el proceso.',
+            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50,40 > Mike\n70 > Restaurante',
+
+            // Example Sections
+            EXAMPLE_FRIENDS_TRIP_TITLE: 'Viaje de Amigos',
+            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gasolina\n18,11 Peaje\n15 Aperitivos\n\nAna\n50,30 Cena\n15 Café - Ana, Mike\n\nMike\n12 Estacionamiento\n60 Entradas',
+
+            EXAMPLE_FAMILY_DINNER_TITLE: 'Cena Familiar',
+            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Verduras\n30,75 Guarniciones\n89,25 Carne\n\nMike 4\n45,25 Bebidas\n10 Hielo\n\nAna 5\n35 Postre\n20 Suministros',
+
+            EXAMPLE_BILL_SPLIT_TITLE: 'División de Cuenta',
+            EXAMPLE_BILL_SPLIT_TEXT: 'Cuenta!\n30 Entradas\n12 Bebida - D\n12 Bebida - M\n16 Plato - D\n18 Plato - M\n32 Plato - A\n10% Tarifa de servicio\n\nAna 2\nDavid\nMike'
+        }
     },
 
     // Helper function to get localized string
@@ -457,7 +529,8 @@ Restaurante! (removido de la división)
             SETTLEMENT_ERROR: strings.SETTLEMENT_ERROR,
             ALL_SETTLED: strings.ALL_SETTLED,
             NOTHING_TO_SETTLE: strings.NOTHING_TO_SETTLE,
-            ERROR_GENERATING_SUMMARY: strings.ERROR_GENERATING_SUMMARY
+            ERROR_GENERATING_SUMMARY: strings.ERROR_GENERATING_SUMMARY,
+            PLACEHOLDER: strings.PLACEHOLDER
         };
     },
 
@@ -469,6 +542,49 @@ Restaurante! (removido de la división)
 };
 
 // Function to initialize UI with localized strings
+function generateFormatGuideHTML() {
+    const formatGuideItems = [
+        'PERSON_NAMES', 'GROUP_SIZE', 'BASIC_EXPENSE',
+        'PERCENTAGE_FEE', 'SPECIFIC_SPLIT', 'EXCLUDE', 'SETTLEMENT'
+    ];
+
+    let html = `<div class="format-guide">
+        <h2>${CONSTANTS.getString('FORMAT_GUIDE_TITLE')}</h2>`;
+
+    formatGuideItems.forEach(item => {
+        html += `
+        <div class="format-item">
+            <div class="format-name">${CONSTANTS.getString(`FORMAT_GUIDE_${item}_NAME`)}</div>
+            <div class="format-description">${CONSTANTS.getString(`FORMAT_GUIDE_${item}_DESC`)}</div>
+            <div class="format-example"><pre>${CONSTANTS.getString(`FORMAT_GUIDE_${item}_EXAMPLE`)}</pre></div>
+        </div>`;
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+function generateExamplesHTML() {
+    const examples = [
+        { titleKey: 'FRIENDS_TRIP', textKey: 'FRIENDS_TRIP' },
+        { titleKey: 'FAMILY_DINNER', textKey: 'FAMILY_DINNER' },
+        { titleKey: 'BILL_SPLIT', textKey: 'BILL_SPLIT' }
+    ];
+
+    let html = `<div class="example-container">`;
+
+    examples.forEach(example => {
+        html += `
+        <div class="example">
+            <h2>${CONSTANTS.getString(`EXAMPLE_${example.titleKey}_TITLE`)}</h2>
+            <pre class="example-input">${CONSTANTS.getString(`EXAMPLE_${example.textKey}_TEXT`)}</pre>
+        </div>`;
+    });
+
+    html += `</div>`;
+    return html;
+}
+
 function initializeUI() {
     const { textarea, copyButton, resetButton } = DOMUtils.getElements();
 
@@ -484,6 +600,18 @@ function initializeUI() {
     if (settlementTemplate) {
         const settleText = settlementTemplate.content.querySelector('.settle-text');
         if (settleText) settleText.textContent = ' ' + CONSTANTS.getString('SETTLED_BUTTON');
+    }
+
+    // Dynamically generate format guide
+    const helpSection = document.querySelector('.help-section');
+    if (helpSection) {
+        helpSection.innerHTML = generateFormatGuideHTML()
+    }
+
+    // Dynamically generate examples section
+    const exampleSection = document.querySelector('.example-section');
+    if (exampleSection) {
+        exampleSection.innerHTML = generateExamplesHTML();
     }
 
     // Initialize empty sections on page load
@@ -927,7 +1055,7 @@ const TransactionLogic = {
             // Check if there are participants specified
             const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
             let description, participantsStr;
-            
+
             if (participantMatch) {
                 description = participantMatch[1].trim();
                 participantsStr = participantMatch[2];
@@ -981,7 +1109,7 @@ const TransactionLogic = {
             // Check if there are participants specified
             const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
             let description, participantsStr;
-            
+
             if (participantMatch) {
                 description = participantMatch[1].trim();
                 participantsStr = participantMatch[2];
@@ -1670,7 +1798,7 @@ const TextareaUtils = {
             // Temporarily store the current global state
             const originalPeopleData = currentPeopleData;
             const originalTransactions = currentTransactions;
-            
+
             // Set the global state to the provided data for formatting
             currentPeopleData = peopleData;
             currentTransactions = transactions;
@@ -2013,10 +2141,10 @@ function updateResults() {
 
         // Calculate settlements for comparison
         const settlements = CalculationLogic.calculateSettlements(people, transactions);
-        
+
         // Execute unified refresh logic
         const refreshOccurred = RefreshManager.executeRefresh(people, transactions, settlements, expensesDiv, settlementsDiv, input);
-        
+
         if (!refreshOccurred) {
             return; // Nothing changed, exit early
         }
@@ -2193,7 +2321,7 @@ function resetData() {
             currentSettlements = [];
             currentTransactions = [];
             isSettling = false;
-            
+
             updateResults();
 
         } catch (error) {
@@ -2219,10 +2347,10 @@ function loadFromLocalStorage() {
 
             // Auto-expand after loading content
             TextareaUtils.autoExpand();
-            
+
             // Update results after loading - this will parse and set the global state
             updateResults();
-            
+
             // Apply formatting after the results are updated
             const warnings = ValidationLogic.validateExpenses(savedData);
             if (warnings.length === 0) {
@@ -2259,7 +2387,7 @@ function autoExpandTextarea(textarea) {
     }
 
     // Calculate new height, ensuring it stays within min/max bounds
-    const minHeight = 300; // matches min-height in CSS
+    const minHeight = 150; // matches min-height in CSS
     const maxHeightRatio = isMobile ? 0.4 : 0.6; // 40vh on mobile, 60vh on desktop
     const maxHeight = Math.floor(availableHeight * maxHeightRatio);
     const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
