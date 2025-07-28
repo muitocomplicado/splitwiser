@@ -8,7 +8,7 @@
   "theme_color": "#16a34a",
   "orientation": "portrait",
   "scope": "./",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "icons": [
     {
       "src": "icons/icon-96x96.png",
