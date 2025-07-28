@@ -4,21 +4,19 @@
 
 // Locale detection and management
 function getLocale() {
-    const browserLang = navigator.language || navigator.userLanguage || 'en';
+    const browserLang = navigator.language || navigator.userLanguage || 'en-US';
     const lang = browserLang.toLowerCase();
 
     if (lang.startsWith('pt')) return 'pt-BR';
-    if (lang.startsWith('es')) return 'es';
-    return 'en';
+    if (lang.startsWith('es')) return 'es-ES';
+    return 'en-US';
 }
-
-const currentLocale = getLocale();
 
 // Localization constants
 const LOCALE = {
     // Localized strings
     STRINGS: {
-        'en': {
+        'en-US': {
             SETTLED_TEXT: 'SETTLED',
             COPY_SUCCESS: 'COPIED ✓',
             NOTHING_TO_COPY: 'Nothing to copy. Add some expenses first.',
@@ -55,7 +53,7 @@ const LOCALE = {
 
             FORMAT_GUIDE_GROUP_SIZE_NAME: 'Group size',
             FORMAT_GUIDE_GROUP_SIZE_DESC: 'Optional number after the name. Proportional share of the split.',
-            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nMike (2)',
+            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nCris (2)',
 
             FORMAT_GUIDE_BASIC_EXPENSE_NAME: 'Basic expense',
             FORMAT_GUIDE_BASIC_EXPENSE_DESC: 'Amount (with or without cents) with optional description.',
@@ -67,7 +65,7 @@ const LOCALE = {
 
             FORMAT_GUIDE_SPECIFIC_SPLIT_NAME: 'Specific split',
             FORMAT_GUIDE_SPECIFIC_SPLIT_DESC: 'Add comma separated names (or initials) after " - " to split the expense among them.',
-            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Coffee - Mike\n50 Dinner - A, D',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Coffee - Cris\n50 Dinner - A, D',
 
             FORMAT_GUIDE_EXCLUDE_NAME: 'Exclude from split',
             FORMAT_GUIDE_EXCLUDE_DESC: 'Add ! after the name to be owed but not share the expense.',
@@ -75,17 +73,17 @@ const LOCALE = {
 
             FORMAT_GUIDE_SETTLEMENT_NAME: 'Settlement',
             FORMAT_GUIDE_SETTLEMENT_DESC: 'Register payments between people. You can use the buttons in the settlement section to speed up the process.',
-            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50.40 > Mike\n70 > Restaurant',
+            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50.40 > Cris\n70 > Restaurant',
 
             // Example Sections
             EXAMPLE_FRIENDS_TRIP_TITLE: 'Friends Trip',
-            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gas\n18.11 Toll\n15 Snacks\n\nAna\n50.30 Dinner\n15 Coffee - Ana, Mike\n\nMike\n12 Parking\n60 Tickets',
+            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gas\n18.11 Toll\n15 Snacks\n\nAna\n50.30 Dinner\n15 Coffee - Ana, Cris\n\nCris\n12 Parking\n60 Tickets',
 
             EXAMPLE_FAMILY_DINNER_TITLE: 'Family Dinner',
-            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75.50 Vegetables\n30.75 Sides\n89.25 Meats\n\nMike 4\n45.25 Drinks\n10 Ice\n\nAna 5\n35 Dessert\n20 Supplies',
+            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75.50 Vegetables\n30.75 Sides\n89.25 Meats\n\nCris 4\n45.25 Drinks\n10 Ice\n\nAna 5\n35 Dessert\n20 Supplies',
 
             EXAMPLE_BILL_SPLIT_TITLE: 'Bill Split',
-            EXAMPLE_BILL_SPLIT_TEXT: 'Bill!\n30 Appetizers\n12 Drink - D\n12 Drink - M\n16 Entree - D\n18 Entree - M\n32 Entree - A\n10% Service fee\n\nAna 2\nDavid\nMike'
+            EXAMPLE_BILL_SPLIT_TEXT: 'Bill!\n30 Appetizers\n12 Drink - D\n12 Drink - M\n16 Entree - D\n18 Entree - M\n32 Entree - A\n10% Service fee\n\nAna 2\nDavid\nCris'
         },
         'pt-BR': {
             SETTLED_TEXT: 'ACERTADO',
@@ -119,12 +117,12 @@ const LOCALE = {
             // Format Guide Messages
             FORMAT_GUIDE_TITLE: 'Guia de Formato',
             FORMAT_GUIDE_PERSON_NAMES_NAME: 'Nomes de pessoas',
-            FORMAT_GUIDE_PERSON_NAMES_DESC: 'Comece com um nome em sua própria linha. Gastos adicionados abaixo do nome foram pagos por essa pessoa.',
+            FORMAT_GUIDE_PERSON_NAMES_DESC: 'Defina um nome em sua própria linha. Gastos adicionados abaixo do nome foram pagos por essa pessoa.',
             FORMAT_GUIDE_PERSON_NAMES_EXAMPLE: 'David\n50 Jantar\n20 Bebidas',
 
             FORMAT_GUIDE_GROUP_SIZE_NAME: 'Tamanho do grupo',
-            FORMAT_GUIDE_GROUP_SIZE_DESC: 'Número opcional após o nome. Parte proporcional do rateio.',
-            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nMike (2)',
+            FORMAT_GUIDE_GROUP_SIZE_DESC: 'Número opcional após o nome. Faz o rateio proporcionalmente com o tamanho do grupo.',
+            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nCris (2)',
 
             FORMAT_GUIDE_BASIC_EXPENSE_NAME: 'Gasto básico',
             FORMAT_GUIDE_BASIC_EXPENSE_DESC: 'Valor (com ou sem centavos) com descrição opcional.',
@@ -136,27 +134,27 @@ const LOCALE = {
 
             FORMAT_GUIDE_SPECIFIC_SPLIT_NAME: 'Rateio específico',
             FORMAT_GUIDE_SPECIFIC_SPLIT_DESC: 'Adicione nomes separados por vírgula (ou iniciais) após " - " para dividir o gasto entre eles.',
-            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Café - Mike\n50 Jantar - A, D',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Café - Cris\n50 Jantar - A, D',
 
             FORMAT_GUIDE_EXCLUDE_NAME: 'Excluir do rateio',
-            FORMAT_GUIDE_EXCLUDE_DESC: 'Adicione ! após o nome para ser cobrado, mas não compartilhar o gasto.',
+            FORMAT_GUIDE_EXCLUDE_DESC: 'Adicione ! após o nome para ser devido, mas não compartilhar o gasto.',
             FORMAT_GUIDE_EXCLUDE_EXAMPLE: 'Restaurante!\nRecibo!',
 
             FORMAT_GUIDE_SETTLEMENT_NAME: 'Acerto',
             FORMAT_GUIDE_SETTLEMENT_DESC: 'Registre pagamentos entre pessoas. Você pode usar os botões na seção de acertos para agilizar o processo.',
-            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50,40 > Mike\n70 > Restaurante',
+            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50,40 > Cris\n70 > Restaurante',
 
             // Example Sections
             EXAMPLE_FRIENDS_TRIP_TITLE: 'Viagem de Amigos',
-            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gasolina\n18,11 Pedágio\n15 Lanches\n\nAna\n50,30 Jantar\n15 Café - Ana, Mike\n\nMike\n12 Estacionamento\n60 Ingressos',
+            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gasolina\n18,11 Pedágio\n15 Lanches\n\nAna\n50,30 Jantar\n15 Café - Ana, Cris\n\nCris\n12 Estacionamento\n60 Ingressos',
 
             EXAMPLE_FAMILY_DINNER_TITLE: 'Jantar em Família',
-            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Legumes\n30,75 Acompanhamentos\n89,25 Carne\n\nMike 4\n45,25 Bebidas\n10 Gelo\n\nAna 5\n35 Sobremesa\n20 Suprimentos',
+            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Legumes\n30,75 Acompanhamentos\n89,25 Carne\n\nCris 4\n45,25 Bebidas\n10 Gelo\n\nAna 5\n35 Sobremesa\n20 Suprimentos',
 
             EXAMPLE_BILL_SPLIT_TITLE: 'Divisão de Conta',
-            EXAMPLE_BILL_SPLIT_TEXT: 'Conta!\n30 Aperitivos\n12 Bebida - D\n12 Bebida - M\n16 Prato - D\n18 Prato - M\n32 Prato - A\n10% Taxa de serviço\n\nAna 2\nDavid\nMike'
+            EXAMPLE_BILL_SPLIT_TEXT: 'Conta!\n30 Aperitivos\n12 Bebida - D\n12 Bebida - M\n16 Prato - D\n18 Prato - M\n32 Prato - A\n10% Taxa de serviço\n\nAna 2\nDavid\nCris'
         },
-        'es': {
+        'es-ES': {
             SETTLED_TEXT: 'LIQUIDADO',
             COPY_SUCCESS: 'COPIADO ✓',
             NOTHING_TO_COPY: 'Nada que copiar. Agregue algunos gastos primero.',
@@ -193,7 +191,7 @@ const LOCALE = {
 
             FORMAT_GUIDE_GROUP_SIZE_NAME: 'Tamaño del grupo',
             FORMAT_GUIDE_GROUP_SIZE_DESC: 'Número opcional después del nombre. Parte proporcional de la división.',
-            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nMike (2)',
+            FORMAT_GUIDE_GROUP_SIZE_EXAMPLE: 'Ana 3\nCris (2)',
 
             FORMAT_GUIDE_BASIC_EXPENSE_NAME: 'Gasto básico',
             FORMAT_GUIDE_BASIC_EXPENSE_DESC: 'Monto (con o sin centavos) con descripción opcional.',
@@ -205,7 +203,7 @@ const LOCALE = {
 
             FORMAT_GUIDE_SPECIFIC_SPLIT_NAME: 'División específica',
             FORMAT_GUIDE_SPECIFIC_SPLIT_DESC: 'Agregue nombres separados por coma (o iniciales) después de " - " para dividir el gasto entre ellos.',
-            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Café - Mike\n50 Cena - A, D',
+            FORMAT_GUIDE_SPECIFIC_SPLIT_EXAMPLE: '7 Café - Cris\n50 Cena - A, D',
 
             FORMAT_GUIDE_EXCLUDE_NAME: 'Excluir de la división',
             FORMAT_GUIDE_EXCLUDE_DESC: 'Agregue ! después del nombre para ser adeudado pero no compartir el gasto.',
@@ -213,24 +211,25 @@ const LOCALE = {
 
             FORMAT_GUIDE_SETTLEMENT_NAME: 'Liquidación',
             FORMAT_GUIDE_SETTLEMENT_DESC: 'Registre pagos entre personas. Puede usar los botones en la sección de liquidaciones para acelerar el proceso.',
-            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50,40 > Mike\n70 > Restaurante',
+            FORMAT_GUIDE_SETTLEMENT_EXAMPLE: '50 > Ana\n50,40 > Cris\n70 > Restaurante',
 
             // Example Sections
             EXAMPLE_FRIENDS_TRIP_TITLE: 'Viaje de Amigos',
-            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gasolina\n18,11 Peaje\n15 Aperitivos\n\nAna\n50,30 Cena\n15 Café - Ana, Mike\n\nMike\n12 Estacionamiento\n60 Entradas',
+            EXAMPLE_FRIENDS_TRIP_TEXT: 'David\n45 Gasolina\n18,11 Peaje\n15 Aperitivos\n\nAna\n50,30 Cena\n15 Café - Ana, Cris\n\nCris\n12 Estacionamiento\n60 Entradas',
 
             EXAMPLE_FAMILY_DINNER_TITLE: 'Cena Familiar',
-            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Verduras\n30,75 Guarniciones\n89,25 Carne\n\nMike 4\n45,25 Bebidas\n10 Hielo\n\nAna 5\n35 Postre\n20 Suministros',
+            EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Verduras\n30,75 Guarniciones\n89,25 Carne\n\nCris 4\n45,25 Bebidas\n10 Hielo\n\nAna 5\n35 Postre\n20 Suministros',
 
             EXAMPLE_BILL_SPLIT_TITLE: 'División de Cuenta',
-            EXAMPLE_BILL_SPLIT_TEXT: 'Cuenta!\n30 Entradas\n12 Bebida - D\n12 Bebida - M\n16 Plato - D\n18 Plato - M\n32 Plato - A\n10% Tarifa de servicio\n\nAna 2\nDavid\nMike'
+            EXAMPLE_BILL_SPLIT_TEXT: 'Cuenta!\n30 Entradas\n12 Bebida - D\n12 Bebida - M\n16 Plato - D\n18 Plato - M\n32 Plato - A\n10% Tarifa de servicio\n\nAna 2\nDavid\nCris'
         }
     },
 
     // Helper function to get localized string
     getString: function(key) {
-        return this.STRINGS[currentLocale] && this.STRINGS[currentLocale][key]
-            ? this.STRINGS[currentLocale][key]
+        const currentLocalePrefix = getLocale();
+        return this.STRINGS[currentLocalePrefix] && this.STRINGS[currentLocalePrefix][key]
+            ? this.STRINGS[currentLocalePrefix][key]
             : this.STRINGS['en'][key] || key;
     },
 

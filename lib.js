@@ -22,8 +22,6 @@ const CONFIG_CONSTANTS = {
     // LocalStorage
     STORAGE_KEY: 'expenseInputData',
 
-    // Number formatting
-    DEFAULT_LOCALE: currentLocale === 'pt-BR' ? 'pt-BR' : currentLocale === 'es' ? 'es-ES' : 'en-US',
 };
 
 // Keep CONSTANTS for configuration, LOCALE for localization
@@ -457,10 +455,7 @@ const NumberLogic = {
             if (amount === 0 || Math.abs(amount) < 0.005) {
                 amount = 0;
             }
-
-            // Use browser's locale for number formatting
-            const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
-            return amount.toLocaleString(locale, {
+            return amount.toLocaleString(getLocale(), {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
