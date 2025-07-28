@@ -27,7 +27,9 @@
 
     <!-- External CSS and JS files with versioning -->
     <link rel="stylesheet" href="styles.css?v=ec127663">
-    <script src="script.js?v=0c4b92a4" defer></script>
+    <script src="locale.js?v=00000000" defer></script>
+    <script src="lib.js?v=00000000" defer></script>
+    <script src="ui.js?v=00000000" defer></script>
 
 </head>
 <body>
@@ -82,6 +84,57 @@ onpaste="setTimeout(() => { autoExpandTextarea(this); }, 0)"></textarea>
     <template id="validation-warning-template">
         <div class="warning-line"></div>
     </template>
+
+    <script>
+        // DOM initialization - only runs in the main app, not in tests
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize UI with localized strings
+            initializeUI();
+            
+            // Load saved data from localStorage
+            loadFromLocalStorage();
+            
+            // Set initial textarea height
+            const textarea = document.getElementById('expenseInput');
+            if (textarea) {
+                autoExpandTextarea(textarea);
+            }
+
+            // Add debounced input event listener
+            textarea.addEventListener('input', function() {
+                try {
+                    // Auto-expand textarea first
+                    autoExpandTextarea(this);
+
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        try {
+                            updateResults();
+                            saveToLocalStorage();
+                        } catch (error) {
+                            ErrorHandler.handleProcessingError(error);
+                        }
+                    }, CONSTANTS.DEBOUNCE_TIMEOUT);
+                } catch (error) {
+                    console.warn('Input handler error', error);
+                }
+            });
+
+            // Handle window resize to recalculate textarea max height
+            window.addEventListener('resize', function() {
+                if (textarea) {
+                    autoExpandTextarea(textarea);
+                }
+            });
+
+            // Initial calculation
+            try {
+                updateResults();
+            } catch (error) {
+                ErrorHandler.handleProcessingError(error);
+            }
+        });
+    </script>
 
 </body>
 </html>

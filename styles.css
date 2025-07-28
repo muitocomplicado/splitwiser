@@ -214,7 +214,7 @@ button:active {
 }
 
 .actions {
-    margin-top: 30px;
+    margin: 40px 0;
     display: flex;
     gap: 15px;
     justify-content: center;

@@ -5,17 +5,17 @@ Splitwiser is a vanilla HTML/CSS/JavaScript PWA for expense splitting calculatio
 
 ## Development Commands
 - **Development server**: ./server.sh to start the development server.
-- **Testing**: automated tests should be created in test.html.
+- **Testing**: automated tests should be created in tests.html.
 - **Deploy**: ./deploy.sh to release a new version.
 
 ## Code Style Guidelines
 - **Language**: Vanilla JavaScript (ES6+), HTML5, CSS3
-- **Structure**: HTML in `index.html`, Javascript in `script.js` and CSS in `style.css`.
+- **Structure**: HTML in `index.html`, Javascript in `locale.js`, `lib.js`, `ui.js` and CSS in `styles.css`.
 - **Variables**: camelCase for JS variables, kebab-case for CSS classes
 - **Functions**: Descriptive names, try/catch for error handling
 - **Constants**: UPPER_SNAKE_CASE in CONSTANTS object
 - **CSS**: CSS custom properties (variables) for theming, mobile-first responsive design
-- **Localization**: Multi-language support via CONSTANTS.STRINGS object
+- **Localization**: Multi-language support via LOCALE.getString() method with default locales: "en-US", "pt-BR" and "es-ES"
 - **Error Handling**: Use ErrorHandler utility for consistent error management
 - **Comments**: Minimal - code should be self-documenting
 

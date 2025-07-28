@@ -25,8 +25,8 @@ if [ ! -d ".git" ]; then
 fi
 
 # Check if required files exist
-if [ ! -f "index.html" ] || [ ! -f "styles.css" ] || [ ! -f "script.js" ] || [ ! -f "manifest.json" ]; then
-    echo "❌ Error: Required files (index.html, styles.css, script.js, manifest.json) not found"
+if [ ! -f "index.html" ] || [ ! -f "styles.css" ] || [ ! -f "locale.js" ] || [ ! -f "lib.js" ] || [ ! -f "ui.js" ] || [ ! -f "manifest.json" ]; then
+    echo "❌ Error: Required files (index.html, styles.css, locale.js, lib.js, ui.js, manifest.json) not found"
     exit 1
 fi
 
@@ -81,15 +81,21 @@ rm -f manifest.json.bak
 # Generate file hashes
 echo "📝 Generating file hashes..."
 CSS_HASH=$(shasum -a 256 styles.css | cut -d' ' -f1 | cut -c1-8)
-JS_HASH=$(shasum -a 256 script.js | cut -d' ' -f1 | cut -c1-8)
+LOCALE_HASH=$(shasum -a 256 locale.js | cut -d' ' -f1 | cut -c1-8)
+LIB_HASH=$(shasum -a 256 lib.js | cut -d' ' -f1 | cut -c1-8)
+UI_HASH=$(shasum -a 256 ui.js | cut -d' ' -f1 | cut -c1-8)
 
-echo "   CSS hash: $CSS_HASH"
-echo "   JS hash:  $JS_HASH"
+echo "   CSS hash:    $CSS_HASH"
+echo "   Locale hash: $LOCALE_HASH"
+echo "   Lib hash:    $LIB_HASH"
+echo "   UI hash:     $UI_HASH"
 
 # Update index.html with new hashes
 echo "🔄 Updating index.html with new hashes..."
 sed -i.bak "s/styles\.css?v=[^\"]*\"/styles.css?v=$CSS_HASH\"/g" index.html
-sed -i.bak "s/script\.js?v=[^\"]*\"/script.js?v=$JS_HASH\"/g" index.html
+sed -i.bak "s/locale\.js?v=[^\"]*\"/locale.js?v=$LOCALE_HASH\"/g" index.html
+sed -i.bak "s/lib\.js?v=[^\"]*\"/lib.js?v=$LIB_HASH\"/g" index.html
+sed -i.bak "s/ui\.js?v=[^\"]*\"/ui.js?v=$UI_HASH\"/g" index.html
 
 # Remove backup file
 rm -f index.html.bak
@@ -102,7 +108,7 @@ fi
 
 # Add files to git
 echo "📦 Adding files to git..."
-git add index.html styles.css script.js manifest.json
+git add index.html styles.css locale.js lib.js ui.js manifest.json
 
 # Create commit message
 COMMIT_MSG="Release v${NEW_VERSION}
