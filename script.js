@@ -1,28 +1,14 @@
 // Global error handler
-window.onerror = function(message, source, lineno, colno, error) {
+window.onerror = function(message, _source, _lineno, _colno, error) {
     console.error('Global error caught:', message, error);
-    const expensesDiv = document.getElementById('expenses-results');
-    const settlementsDiv = document.getElementById('settlements-results');
-    if (expensesDiv) {
-        expensesDiv.innerHTML = getEmptyExpensesHTML();
-    }
-    if (settlementsDiv) {
-        settlementsDiv.innerHTML = getEmptySettlementsHTML();
-    }
+    DOMUtils.resetResultsSections();
     return true;
 };
 
 // Promise rejection handler
 window.addEventListener('unhandledrejection', function(event) {
     console.error('Unhandled promise rejection:', event.reason);
-    const expensesDiv = document.getElementById('expenses-results');
-    const settlementsDiv = document.getElementById('settlements-results');
-    if (expensesDiv) {
-        expensesDiv.innerHTML = getEmptyExpensesHTML();
-    }
-    if (settlementsDiv) {
-        settlementsDiv.innerHTML = getEmptySettlementsHTML();
-    }
+    DOMUtils.resetResultsSections();
     event.preventDefault();
 });
 
@@ -30,26 +16,245 @@ let debounceTimer;
 let currentPeopleData = {};
 let currentSettlements = [];
 let currentTransactions = [];
-let previousResultsHTML = '';
-let previousPeopleCount = 0;
-let previousSettlementCount = 0;
-let previousPeopleNames = [];
-let previousSettlementKeys = [];
+
 let isSettling = false;
 
-// Utility function to reset global state variables
-function resetGlobalState() {
-    debounceTimer = null;
-    currentPeopleData = {};
-    currentSettlements = [];
-    currentTransactions = [];
-    previousResultsHTML = '';
-    previousPeopleCount = 0;
-    previousSettlementCount = 0;
-    previousPeopleNames = [];
-    previousSettlementKeys = [];
-    isSettling = false;
-}
+
+
+// Unified refresh decision system
+const RefreshManager = {
+
+
+
+    // Create a hash focused only on calculation-affecting data
+    createCalculationHash(people, transactions, type, settlements = []) {
+        try {
+            const dataToHash = {
+                // Only include core person data that affects calculations
+                people: Object.keys(people).sort().map(name => {
+                    const person = people[name];
+                    return {
+                        displayName: person.displayName,
+                        parts: person.parts,
+                        isExcluded: person.isExcluded
+                    };
+                }),
+                // Only include transaction data that affects calculations
+                transactions: transactions
+                    .filter(t => {
+                        if (type === 'expenses') {
+                            return t.type === 'expense' || t.type === 'percentage';
+                        }
+                        return true; // settlements need all transaction types
+                    })
+                    .map(t => ({
+                        type: t.type,
+                        amount: t.amount,
+                        percentage: t.percentage,
+                        paidBy: t.paidBy,
+                        sharedWith: t.sharedWith ? t.sharedWith.slice().sort() : [],
+                        settleTo: t.settleTo
+                        // Explicitly exclude description
+                    }))
+            };
+            
+            // Include settlements for settlement calculations
+            if (type === 'settlements') {
+                dataToHash.settlements = settlements.map(s => ({
+                    from: s.from,
+                    to: s.to,
+                    amount: s.amount
+                }));
+            }
+            
+            return JSON.stringify(dataToHash);
+        } catch (error) {
+            console.error('Error creating calculation hash:', error);
+            return null;
+        }
+    },
+
+    // Determine what sections need to be refreshed
+    getRefreshDecisions(people, transactions, settlements, inputText) {
+        try {
+            // If no previous data, refresh everything (initial load)
+            if (!currentPeopleData || Object.keys(currentPeopleData).length === 0 || !currentTransactions) {
+                return {
+                    refreshExpenses: true,
+                    refreshSettlements: true,
+                    isInitialLoad: true
+                };
+            }
+
+            // If new data is empty but we had data before, refresh to show empty state
+            if (!people || Object.keys(people).length === 0) {
+                return {
+                    refreshExpenses: true,
+                    refreshSettlements: true,
+                    isInitialLoad: false
+                };
+            }
+
+            // Create hashes for comparison - only include calculation-affecting data
+            const newExpensesHash = this.createCalculationHash(people, transactions, 'expenses');
+            const newSettlementsHash = this.createCalculationHash(people, transactions, 'settlements', settlements);
+            
+            const currentExpensesHash = this.createCalculationHash(currentPeopleData, currentTransactions, 'expenses');
+            const currentSettlementsHash = this.createCalculationHash(currentPeopleData, currentTransactions, 'settlements', currentSettlements);
+            
+            const expensesChanged = newExpensesHash !== currentExpensesHash;
+            const settlementsChanged = newSettlementsHash !== currentSettlementsHash;
+
+            // If nothing changed, skip all updates
+            if (!expensesChanged && !settlementsChanged) {
+                return {
+                    refreshExpenses: false,
+                    refreshSettlements: false,
+                    skipAll: true
+                };
+            }
+            return {
+                refreshExpenses: expensesChanged,
+                refreshSettlements: settlementsChanged,
+                isInitialLoad: false
+            };
+
+        } catch (error) {
+            console.error('Error in refresh decisions:', error);
+            // On error, refresh everything to be safe
+            return {
+                refreshExpenses: true,
+                refreshSettlements: true,
+                isInitialLoad: true
+            };
+        }
+    },
+
+    // Update the stored data after refresh decisions
+    updateStoredData(people, transactions, settlements) {
+        currentPeopleData = people;
+        currentTransactions = transactions;
+        currentSettlements = settlements;
+    },
+
+    // Generate HTML for expenses section
+    generateExpensesHTML(people, transactions, shouldAnimate) {
+        const names = Object.keys(people);
+        
+        // Handle empty state
+        if (names.length === 0) {
+            return getEmptyExpensesHTML();
+        }
+        
+        const totalExpenses = CalculationLogic.calculateTotalExpenses(transactions);
+        const fairShares = CalculationLogic.calculateFairShares(names, transactions, people);
+        
+        let expensesHtml = '';
+        let expenseIndex = 0;
+
+        // Expenses total header
+        const expensesTotalStyle = shouldAnimate ? `style="--index: ${expenseIndex++}"` : '';
+        expensesHtml += `
+            <div class="summary expenses-summary expenses-total ${shouldAnimate ? '' : 'no-animate'}" ${expensesTotalStyle}>
+                <span class="label">${CONSTANTS.MESSAGES.COSTS}</span>
+                <span class="total">${NumberLogic.formatNumber(totalExpenses)}</span>
+            </div>`;
+
+        // Show individual fair share expenses (excluding settlements and excluded people)
+        const nonExcludedNames = names.filter(name => {
+            const person = people[name];
+            return !person?.isExcluded;
+        });
+
+        nonExcludedNames.forEach(name => {
+            const fairShare = fairShares[name] || 0;
+            const displayName = people[name] ? people[name].displayName : name;
+            const parts = people[name] ? people[name].parts : 1;
+
+            expensesHtml += HTMLDisplay.generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, expenseIndex++);
+        });
+
+        return expensesHtml;
+    },
+
+    // Generate HTML for settlements section
+    generateSettlementsHTML(people, transactions, settlements, shouldAnimate) {
+        // Handle empty state
+        if (Object.keys(people).length === 0) {
+            return getEmptySettlementsHTML();
+        }
+        
+        const totalExpenses = CalculationLogic.calculateTotalExpenses(transactions);
+        let settlementsHtml = '';
+        let settlementIndex = 0;
+
+        // Dynamic title based on state
+        let sectionTitle;
+        if (totalExpenses === 0 && settlements.length === 0) {
+            sectionTitle = CONSTANTS.MESSAGES.NOTHING_TO_SETTLE;
+        } else if (totalExpenses !== 0 && settlements.length === 0) {
+            sectionTitle = CONSTANTS.MESSAGES.ALL_SETTLED;
+        } else {
+            sectionTitle = CONSTANTS.MESSAGES.SETTLEMENTS;
+        }
+
+        // Settlements total header
+        const settlementsTotalStyle = shouldAnimate ? `style="--index: ${settlementIndex++}"` : '';
+        settlementsHtml += `
+            <div class="summary settlements-summary settlements-total ${shouldAnimate ? '' : 'no-animate'}" ${settlementsTotalStyle}>
+                <span class="label">${sectionTitle}</span>
+            </div>`;
+
+        // Show active settlements
+        if (totalExpenses !== 0 && settlements.length > 0) {
+            settlements.forEach((settlement, index) => {
+                settlementsHtml += HTMLDisplay.generateSettlementHTML(settlement, index, shouldAnimate, people, settlementIndex++);
+            });
+        }
+
+        // Show settlement log entries (completed settlements from textarea)
+        const settlementTransactions = CalculationLogic.getSettlementTransactions(transactions);
+        if (settlementTransactions.length > 0) {
+            settlementTransactions.forEach(settlement => {
+                settlementsHtml += HTMLDisplay.generateSettlementLogHTML(settlement, shouldAnimate, people, settlementIndex++);
+            });
+        }
+
+        return settlementsHtml;
+    },
+
+    // Unified refresh execution
+    executeRefresh(people, transactions, settlements, expensesDiv, settlementsDiv, inputText) {
+        const refreshDecisions = this.getRefreshDecisions(people, transactions, settlements, inputText);
+        
+        // If nothing changed, skip all updates
+        if (refreshDecisions.skipAll) {
+            return false;
+        }
+        
+        // Update stored data
+        this.updateStoredData(people, transactions, settlements);
+        
+        const shouldAnimate = refreshDecisions.isInitialLoad;
+        
+        // Generate and update HTML based on decisions
+        if (refreshDecisions.refreshExpenses) {
+            const expensesHtml = this.generateExpensesHTML(people, transactions, shouldAnimate);
+            expensesDiv.innerHTML = expensesHtml;
+        }
+        
+        if (refreshDecisions.refreshSettlements) {
+            const settlementsHtml = this.generateSettlementsHTML(people, transactions, settlements, shouldAnimate);
+            settlementsDiv.innerHTML = settlementsHtml;
+        }
+        
+        return true; // Indicates that some refresh occurred
+    }
+};
+
+
+
+
 
 // Locale detection and management
 function getLocale() {
@@ -72,8 +277,6 @@ const CONSTANTS = {
 
     // Animation delays (in milliseconds)
     PERSON_ANIMATION_DELAY: 50,
-    SETTLEMENT_ANIMATION_DELAY: 75,
-    TOTAL_ROW_EXTRA_DELAY: 100,
 
     // Transaction types
     TRANSACTION_TYPES: {
@@ -267,29 +470,59 @@ Restaurante! (removido de la división)
 
 // Function to initialize UI with localized strings
 function initializeUI() {
+    const { textarea, copyButton, resetButton } = DOMUtils.getElements();
+
     // Set textarea placeholder
-    const textarea = document.getElementById('expenseInput');
-    textarea.placeholder = CONSTANTS.getString('PLACEHOLDER');
+    if (textarea) textarea.placeholder = CONSTANTS.getString('PLACEHOLDER');
 
     // Set button texts
-    const copyButton = document.getElementById('copyButton');
-    copyButton.textContent = CONSTANTS.getString('COPY_SUMMARY');
-
-    const resetButton = document.getElementById('resetButton');
-    resetButton.textContent = CONSTANTS.getString('CLEAR');
+    if (copyButton) copyButton.textContent = CONSTANTS.getString('COPY_SUMMARY');
+    if (resetButton) resetButton.textContent = CONSTANTS.getString('CLEAR');
 
     // Set settlement button template text
-    const settlementTemplate = document.getElementById('settlement-template');
-    const settleText = settlementTemplate.content.querySelector('.settle-text');
-    settleText.textContent = ' ' + CONSTANTS.getString('SETTLED_BUTTON');
+    const settlementTemplate = DOMUtils.getElement('settlement-template');
+    if (settlementTemplate) {
+        const settleText = settlementTemplate.content.querySelector('.settle-text');
+        if (settleText) settleText.textContent = ' ' + CONSTANTS.getString('SETTLED_BUTTON');
+    }
 
     // Initialize empty sections on page load
-    const expensesDiv = document.getElementById('expenses-results');
-    const settlementsDiv = document.getElementById('settlements-results');
-
-    expensesDiv.innerHTML = getEmptyExpensesHTML();
-    settlementsDiv.innerHTML = getEmptySettlementsHTML();
+    DOMUtils.resetResultsSections();
 }
+
+// DOM utility functions for common element access patterns
+const DOMUtils = {
+    // Get commonly used elements
+    getElements() {
+        return {
+            textarea: document.getElementById('expenseInput'),
+            expensesDiv: document.getElementById('expenses-results'),
+            settlementsDiv: document.getElementById('settlements-results'),
+            copyButton: document.getElementById('copyButton'),
+            resetButton: document.getElementById('resetButton'),
+            warningDiv: document.getElementById('validationWarning'),
+            warningContent: document.getElementById('validationContent')
+        };
+    },
+
+    // Get specific element by ID with error handling
+    getElement(id) {
+        const element = document.getElementById(id);
+        if (!element) {
+            console.warn(`Element with ID '${id}' not found`);
+        }
+        return element;
+    },
+
+    // Reset results sections to empty state
+    resetResultsSections() {
+        const { expensesDiv, settlementsDiv } = this.getElements();
+        if (expensesDiv) expensesDiv.innerHTML = getEmptyExpensesHTML();
+        if (settlementsDiv) settlementsDiv.innerHTML = getEmptySettlementsHTML();
+    },
+
+
+};
 
 // Centralized error handling utility
 const ErrorHandler = {
@@ -299,35 +532,15 @@ const ErrorHandler = {
         if (showAlert) {
             alert(userMessage);
         }
-        // Reset UI state on critical errors
+        DOMUtils.resetResultsSections();
         setButtonVisibility(false);
-        resetGlobalState();
     },
 
     // Handle processing errors with fallback UI
-    handleProcessingError(error, fallbackHTML = null) {
+    handleProcessingError(error, _fallbackHTML = null) {
         console.error('Processing Error:', error);
-        const expensesDiv = document.getElementById('expenses-results');
-        const settlementsDiv = document.getElementById('settlements-results');
-
-        // Show empty sections instead of clearing completely
-        expensesDiv.innerHTML = getEmptyExpensesHTML();
-        settlementsDiv.innerHTML = getEmptySettlementsHTML();
-
+        DOMUtils.resetResultsSections();
         setButtonVisibility(false);
-        resetGlobalState();
-    },
-
-    // Handle validation errors
-    handleValidationError(error, warnings = []) {
-        console.error('Validation Error:', error);
-        displayValidationWarnings(warnings);
-        setButtonVisibility(false);
-    },
-
-    // Log warnings without stopping execution
-    logWarning(message, data = null) {
-        console.warn('Warning:', message, data);
     }
 };
 
@@ -337,7 +550,7 @@ function getEmptyExpensesHTML() {
     return `
         <div class="summary expenses-summary expenses-total">
             <span class="label">${CONSTANTS.MESSAGES.COSTS}</span>
-            <span class="total">${formatNumber(0)}</span>
+            <span class="total">${NumberLogic.formatNumber(0)}</span>
         </div>`;
 }
 
@@ -349,163 +562,343 @@ function getEmptySettlementsHTML() {
 }
 
 function setButtonVisibility(show) {
-    const copyButton = document.getElementById('copyButton');
-    const resetButton = document.getElementById('resetButton');
+    const { copyButton, resetButton } = DOMUtils.getElements();
     const display = show ? 'block' : 'none';
 
-    copyButton.style.display = display;
-    resetButton.style.display = display;
+    if (copyButton) copyButton.style.display = display;
+    if (resetButton) resetButton.style.display = display;
 }
 
-// Utility function to generate person summary HTML
-function generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay) {
-    const template = document.getElementById('expenses-template');
-    const clone = template.content.cloneNode(true);
 
-    const animationClass = shouldAnimate ? 'slide-in' : '';
+// HTML template generation utilities
+const TemplateUtils = {
+    // Clone template with optional no-animate class and index for staggered animation
+    cloneTemplate(templateId, shouldAnimate = true, index = 0, wrapperSelector = '.summary') {
+        const template = DOMUtils.getElement(templateId);
+        if (!template) return null;
 
-    const wrapper = clone.querySelector('.summary');
-    wrapper.className = `summary expenses-summary ${animationClass}`;
+        const clone = template.content.cloneNode(true);
+        const wrapper = clone.querySelector(wrapperSelector);
 
-    if (shouldAnimate) {
-        wrapper.style.animationDelay = `${animationDelay}ms`;
-    }
-
-    clone.querySelector('.label').textContent = formatPersonWithParts(displayName, parts);
-    clone.querySelector('.total').textContent = formatNumber(fairShare);
-
-    // Create a temporary div to get the outerHTML
-    const tempDiv = document.createElement('div');
-    tempDiv.appendChild(clone);
-    return tempDiv.innerHTML;
-}
-
-// Utility function to generate settlement HTML
-function generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people) {
-    const { fromName, toName } = getSettlementNames(settlement, people);
-
-    const template = document.getElementById('settlement-template');
-    const clone = template.content.cloneNode(true);
-
-    const animationClass = shouldAnimate ? 'slide-in' : '';
-
-    const wrapper = clone.querySelector('.settlements-summary');
-    wrapper.className = `summary settlements-summary ${animationClass}`;
-    wrapper.dataset.settlementIndex = index;
-
-    if (shouldAnimate) {
-        wrapper.style.animationDelay = `${animationDelay}ms`;
-    }
-
-    clone.querySelector('.label').textContent = formatTemplate(
-        CONSTANTS.MESSAGES.OWES_TEMPLATE,
-        {
-            fromName: fromName,
-            amount: formatNumber(settlement.amount),
-            toName: toName
+        if (wrapper) {
+            if (!shouldAnimate) {
+                // Add no-animate class if this shouldn't animate (for updates)
+                wrapper.classList.add('no-animate');
+            } else {
+                // Set CSS custom property for staggered animation delay
+                wrapper.style.setProperty('--index', index);
+            }
         }
-    );
 
-    // Add inline onclick handler to the settle button
-    const settleButton = clone.querySelector('.settle-button');
-    settleButton.setAttribute('onclick', `settlePayment(${index})`);
-    settleButton.setAttribute('onmousedown', 'event.preventDefault()');
+        return { clone, wrapper };
+    },
 
-    // Create a temporary div to get the outerHTML
-    const tempDiv = document.createElement('div');
-    tempDiv.appendChild(clone);
-    return tempDiv.innerHTML;
-}
-
-// Utility function to generate settlement log HTML
-function generateSettlementLogHTML(settlement, shouldAnimate, animationDelay, people) {
-    const template = document.getElementById('settlement-log-template');
-    const clone = template.content.cloneNode(true);
-
-    const animationClass = shouldAnimate ? 'slide-in' : '';
-
-    const wrapper = clone.querySelector('.settlements-summary');
-    wrapper.className = `summary settlements-summary settlement-log ${animationClass}`;
-
-    if (shouldAnimate) {
-        wrapper.style.animationDelay = `${animationDelay}ms`;
+    // Convert cloned template to HTML string
+    templateToHTML(clone) {
+        const tempDiv = document.createElement('div');
+        tempDiv.appendChild(clone);
+        return tempDiv.innerHTML;
     }
+};
+// HTML Generation Display Utilities
+const HTMLDisplay = {
+    // Generate person summary HTML
+    generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate = true, index = 0) {
+        const result = TemplateUtils.cloneTemplate('expenses-template', shouldAnimate, index);
+        if (!result) return '';
 
-    // Get display names for the settlement
-    const { fromName, toName } = getSettlementNames(settlement, people, 'paidBy', 'settleTo');
+        const { clone, wrapper } = result;
+        if (wrapper) wrapper.className = `summary expenses-summary`;
 
-    clone.querySelector('.label').textContent = formatTemplate(
-        CONSTANTS.MESSAGES.PAID_TEMPLATE,
-        {
-            fromName: fromName,
-            amount: formatNumber(settlement.amount),
-            toName: toName
+        clone.querySelector('.label').textContent = PersonDisplay.formatWithParts(displayName, parts);
+        clone.querySelector('.total').textContent = NumberLogic.formatNumber(fairShare);
+
+        return TemplateUtils.templateToHTML(clone);
+    },
+
+    // Generate settlement HTML
+    generateSettlementHTML(settlement, settlementIndex, shouldAnimate = true, people, animationIndex = 0) {
+        const { fromName, toName } = PersonDisplay.getSettlementNames(settlement, people);
+
+        const result = TemplateUtils.cloneTemplate('settlement-template', shouldAnimate, animationIndex, '.settlements-summary');
+        if (!result) return '';
+
+        const { clone, wrapper } = result;
+        if (wrapper) {
+            wrapper.className = `summary settlements-summary`;
+            wrapper.dataset.settlementIndex = settlementIndex;
         }
-    );
 
-    // Create a temporary div to get the outerHTML
-    const tempDiv = document.createElement('div');
-    tempDiv.appendChild(clone);
-    return tempDiv.innerHTML;
-}
+        clone.querySelector('.label').textContent = formatTemplate(
+            CONSTANTS.MESSAGES.OWES_TEMPLATE,
+            {
+                fromName: fromName,
+                amount: NumberLogic.formatNumber(settlement.amount),
+                toName: toName
+            }
+        );
 
+        // Add inline onclick handler to the settle button
+        const settleButton = clone.querySelector('.settle-button');
+        if (settleButton) {
+            settleButton.setAttribute('onclick', `settlePayment(${settlementIndex})`);
+            settleButton.setAttribute('onmousedown', 'event.preventDefault()');
+        }
+
+        return TemplateUtils.templateToHTML(clone);
+    },
+    // Generate settlement log HTML
+    generateSettlementLogHTML(settlement, shouldAnimate = true, people, index = 0) {
+        const result = TemplateUtils.cloneTemplate('settlement-log-template', shouldAnimate, index, '.settlements-summary');
+        if (!result) return '';
+
+        const { clone, wrapper } = result;
+        if (wrapper) {
+            wrapper.className = `summary settlements-summary settlement-log`;
+        }
+
+        // Get display names for the settlement
+        const { fromName, toName } = PersonDisplay.getSettlementNames(settlement, people, 'paidBy', 'settleTo');
+
+        clone.querySelector('.label').textContent = formatTemplate(
+            CONSTANTS.MESSAGES.PAID_TEMPLATE,
+            {
+                fromName: fromName,
+                amount: NumberLogic.formatNumber(settlement.amount),
+                toName: toName
+            }
+        );
+
+        return TemplateUtils.templateToHTML(clone);
+    }
+};
 // Utility function to generate no-data message HTML using template
 
 
-// Utility function to generate validation warning HTML using template
-function generateValidationWarningHTML(errorMessage) {
-    const template = document.getElementById('validation-warning-template');
-    const clone = template.content.cloneNode(true);
 
-    clone.querySelector('.warning-line').textContent = errorMessage;
 
-    // Create a temporary div to get the outerHTML
-    const tempDiv = document.createElement('div');
-    tempDiv.appendChild(clone);
-    return tempDiv.innerHTML;
-}
+// ===== CORE LOGIC UTILITIES =====
+// These utilities contain pure business logic without DOM manipulation
 
-// Utility function to validate a person reference and return validation result
-function validatePersonReference(personRef, people, personData) {
-    // Skip empty references
-    if (!personRef || personRef.trim() === '') {
-        return { isValid: true, matches: [] };
+// Validation Logic Module
+const ValidationLogic = {
+    // Validate a person reference and return validation result
+    validatePersonReference(personRef, people, personData) {
+        // Skip empty references
+        if (!personRef || personRef.trim() === '') {
+            return { isValid: true, matches: [] };
+        }
+
+        const trimmedRef = personRef.trim();
+
+        // Find potential matches
+        const exactMatches = people.filter(name => name === trimmedRef);
+        const partialMatches = people.filter(name =>
+            name.toLowerCase().startsWith(trimmedRef.toLowerCase())
+        );
+        const displayMatches = people.filter(name => {
+            const info = personData[name];
+            return info && info.displayName.toLowerCase().startsWith(trimmedRef.toLowerCase());
+        });
+
+        // Get unique matches
+        const allMatches = [...new Set([...exactMatches, ...partialMatches, ...displayMatches])];
+
+        return {
+            isValid: allMatches.length === 1,
+            matches: allMatches,
+            isAmbiguous: allMatches.length > 1,
+            notFound: allMatches.length === 0,
+            personRef: trimmedRef
+        };
+    },
+
+    // Validate expenses and return warnings
+    validateExpenses(text) {
+        const lines = text.split('\n').map(line => line.trim());
+        const warnings = [];
+        const people = [];
+        const personData = {};
+
+        // First pass: collect all person names
+        const seenDisplayNames = new Map(); // Track display names case-insensitively
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line === '') continue;
+
+            const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+            const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
+
+            if (!expenseMatch && startsWithLetter && line.length > 0) {
+                people.push(line);
+
+                const personInfo = PersonLogic.parsePersonName(line);
+                const displayName = personInfo.displayName;
+                const baseName = personInfo.baseName;
+
+                // Check for case-insensitive duplicate names using baseName (without !)
+                const lowerBaseName = baseName.toLowerCase();
+                if (seenDisplayNames.has(lowerBaseName)) {
+                    const existingLine = seenDisplayNames.get(lowerBaseName);
+                    warnings.push({
+                        text: line,
+                        error: formatTemplate(CONSTANTS.MESSAGES.DUPLICATE_NAME_TEMPLATE, {
+                            currentName: displayName,
+                            existingName: existingLine.displayName
+                        })
+                    });
+                } else {
+                    seenDisplayNames.set(lowerBaseName, { displayName });
+                }
+
+                personData[line] = { displayName, originalName: line };
+            }
+        }
+
+        // Second pass: check for ambiguous references in expenses and validate settlements
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line === '') continue;
+
+            // Check settlement lines (amount > person)
+            const settlementMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
+            if (settlementMatch) {
+                const personRef = settlementMatch[2].trim();
+                const validation = this.validatePersonReference(personRef, people, personData);
+
+                if (validation.isAmbiguous) {
+                    const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
+                    warnings.push({
+                        text: line,
+                        error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
+                            personRef: validation.personRef,
+                            matchingNames: matchingNames
+                        })
+                    });
+                } else if (validation.notFound) {
+                    warnings.push({
+                        text: line,
+                        error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
+                            personRef: validation.personRef,
+                            errorMessage: CONSTANTS.MESSAGES.PERSON_NOT_FOUND
+                        })
+                    });
+                }
+            }
+
+            // Check expense lines (amount description - person1, person2, ...)
+            const sharedMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
+            if (sharedMatch) {
+                const peopleStr = sharedMatch[3].trim();
+                const peopleRefs = peopleStr.split(',').map(p => p.trim());
+
+                for (const personRef of peopleRefs) {
+                    const validation = this.validatePersonReference(personRef, people, personData);
+
+                    // Skip empty references
+                    if (!validation.personRef) {
+                        continue;
+                    }
+
+                    if (validation.isAmbiguous) {
+                        const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
+                        warnings.push({
+                            text: line,
+                            error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
+                                personRef: validation.personRef,
+                                matchingNames: matchingNames
+                            })
+                        });
+                    } else if (validation.notFound) {
+                        warnings.push({
+                            text: line,
+                            error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
+                                personRef: validation.personRef,
+                                errorMessage: CONSTANTS.MESSAGES.PERSON_NOT_FOUND
+                            })
+                        });
+                    }
+                }
+            }
+        }
+
+        return warnings;
     }
+};
 
-    const trimmedRef = personRef.trim();
+// Person Logic Module
+const PersonLogic = {
+    // Find person by name or initial
+    findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
+        const validation = ValidationLogic.validatePersonReference(nameOrInitial, allNames, personData);
+        return validation.isValid ? validation.matches[0] : null;
+    },
 
-    // Find potential matches
-    const exactMatches = people.filter(name => name === trimmedRef);
-    const partialMatches = people.filter(name =>
-        name.toLowerCase().startsWith(trimmedRef.toLowerCase())
-    );
-    const displayMatches = people.filter(name => {
-        const info = personData[name];
-        return info && info.displayName.toLowerCase().startsWith(trimmedRef.toLowerCase());
-    });
+    // Parse person name from input string
+    parsePersonName(personString) {
+        // Check for ! anywhere in the string (excluded from shared expenses)
+        const isExcluded = personString.includes('!');
 
-    // Get unique matches
-    const allMatches = [...new Set([...exactMatches, ...partialMatches, ...displayMatches])];
+        // Remove ! from the string for processing
+        const cleanedString = personString.replace(/!/g, '');
 
-    return {
-        isValid: allMatches.length === 1,
-        matches: allMatches,
-        isAmbiguous: allMatches.length > 1,
-        notFound: allMatches.length === 0,
-        personRef: trimmedRef
-    };
-}
+        // Look for the first number in the string for parts count
+        const numberMatch = cleanedString.match(/(\d+)/);
+        const parts = numberMatch ? parseInt(numberMatch[1]) : 1;
 
-function findPersonByNameOrInitial(nameOrInitial, allNames, personData) {
-    const validation = validatePersonReference(nameOrInitial, allNames, personData);
-    return validation.isValid ? validation.matches[0] : null;
-}
+        // Remove all non-letter characters except spaces, keeping only letters and spaces
+        let baseName = cleanedString.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
 
-function parseTransaction(expenseLine, allNames, personData) {
+        // Normalize multiple spaces
+        baseName = baseName.replace(/\s+/g, ' ').trim();
+
+        // Fallback: if baseName is empty, use the cleaned string without numbers
+        if (!baseName) {
+            baseName = cleanedString.replace(/\d+/g, '').trim();
+        }
+
+        // Create display name - always format as Name! if excluded, regardless of original ! placement
+        const displayName = isExcluded ? baseName + '!' : baseName;
+
+        return {
+            displayName: displayName,
+            baseName: baseName, // Base name without ! for duplicate checking
+            parts: parts,
+            originalName: personString,
+            isExcluded: isExcluded
+        };
+    },
+
+    // Format person name with parts count
+    formatWithParts(displayName, parts) {
+        if (parts > 1) {
+            return formatTemplate(CONSTANTS.MESSAGES.PERSON_WITH_PARTS_TEMPLATE, {
+                displayName: displayName,
+                parts: parts
+            });
+        }
+        return displayName;
+    },
+
+    // Clean person name for settlements (removes !)
+    cleanForSettlement(displayName) {
+        return displayName ? displayName.replace(/!$/, '') : displayName;
+    },
+
+    // Get clean settlement names from settlement object
+    getSettlementNames(settlement, people, fromKey = 'from', toKey = 'to') {
+        const fromPerson = people[settlement[fromKey]];
+        const toPerson = people[settlement[toKey]];
+        const fromName = this.cleanForSettlement(fromPerson ? fromPerson.displayName : settlement[fromKey]);
+        const toName = this.cleanForSettlement(toPerson ? toPerson.displayName : settlement[toKey]);
+        return { fromName, toName };
+    }
+};
+
+// Transaction Parsing Logic Module
+const TransactionLogic = {
     // Helper function to resolve participant names
-    // Returns [] if peopleStr is null/empty (meaning all participants)
-    // Returns array of resolved names if peopleStr is provided
-    function resolveParticipants(peopleStr) {
+    resolveParticipants(peopleStr, allNames, personData) {
         if (!peopleStr || peopleStr.trim() === '') {
             return []; // Empty array means all participants
         }
@@ -514,188 +907,224 @@ function parseTransaction(expenseLine, allNames, personData) {
         const resolvedPeople = [];
 
         for (const personRef of peopleNames) {
-            const resolvedPerson = findPersonByNameOrInitial(personRef, allNames, personData);
+            const resolvedPerson = PersonLogic.findPersonByNameOrInitial(personRef, allNames, personData);
             if (resolvedPerson) {
                 resolvedPeople.push(resolvedPerson);
             }
         }
 
         return resolvedPeople;
-    }
+    },
 
-    // Try percentage fee pattern: percentage% description [- participants]
-    const percentageMatch = expenseLine.match(/^(\d+(?:[.,]\d+)?)\s*%\s*(.*)$/);
-    if (percentageMatch) {
-        const percentage = parseNumber(percentageMatch[1]);
-        const restOfLine = percentageMatch[2].trim();
+    // Parse a transaction line into structured data
+    parseTransaction(expenseLine, allNames, personData) {
+        // Try percentage fee pattern: percentage% description [- participants]
+        const percentageMatch = expenseLine.match(/^(\d+(?:[.,]\d+)?)\s*%\s*(.*)$/);
+        if (percentageMatch) {
+            const percentage = NumberLogic.parseNumber(percentageMatch[1]);
+            const restOfLine = percentageMatch[2].trim();
 
-        // Check if there are participants specified
-        const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
-        const description = participantMatch ? participantMatch[1].trim() : restOfLine;
-        const participantsStr = participantMatch ? participantMatch[2] : null;
-
-        if (!isNaN(percentage) && percentage > 0) {
-            const sharedWith = resolveParticipants(participantsStr);
-
-            return {
-                type: CONSTANTS.TRANSACTION_TYPES.PERCENTAGE,
-                percentage: percentage,
-                description: description,
-                sharedWith: sharedWith
-            };
-        }
-    }
-
-    // Try settlement pattern: amount > person
-    const settlementMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
-    if (settlementMatch) {
-        const amount = parseNumber(settlementMatch[1]);
-        const personStr = settlementMatch[2].trim();
-        const resolvedPerson = findPersonByNameOrInitial(personStr, allNames, personData);
-
-        if (resolvedPerson && !isNaN(amount) && amount > 0) {
-            return {
-                type: CONSTANTS.TRANSACTION_TYPES.SETTLEMENT,
-                amount: amount,
-                description: '',
-                settleTo: resolvedPerson
-            };
-        }
-    }
-
-    // Try expense pattern: amount [description] [- participants]
-    const expenseMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.*)$/);
-    if (expenseMatch) {
-        const amount = parseNumber(expenseMatch[1]);
-        const restOfLine = expenseMatch[2].trim();
-
-        // Check if there are participants specified
-        const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
-        const description = participantMatch ? participantMatch[1].trim() : restOfLine;
-        const participantsStr = participantMatch ? participantMatch[2] : null;
-
-        if (!isNaN(amount) && amount > 0) {
-            const sharedWith = resolveParticipants(participantsStr);
-
-            return {
-                type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
-                amount: amount,
-                description: description,
-                sharedWith: sharedWith
-            };
-        }
-    }
-
-    return null;
-}
-
-function parseNumber(numStr) {
-    try {
-        numStr = numStr.trim();
-
-        // Handle simple integers
-        if (/^\d+$/.test(numStr)) {
-            return parseFloat(numStr);
-        }
-
-        // Remove any non-digit, non-comma, non-dot characters
-        const cleaned = numStr.replace(/[^\d.,]/g, '');
-        if (!cleaned) return NaN;
-
-        const lastDot = cleaned.lastIndexOf('.');
-        const lastComma = cleaned.lastIndexOf(',');
-
-        // No separators
-        if (lastDot === -1 && lastComma === -1) {
-            return parseFloat(cleaned);
-        }
-
-        // Only dots or only commas
-        if (lastComma === -1) {
-            // Only dots: could be US format (1,234.56) or thousands (1.234)
-            const parts = cleaned.split('.');
-            const lastPart = parts[parts.length - 1];
-            if (lastPart.length <= 2 && parts.length >= 2) {
-                // Likely decimal: 1.234.56 -> 1234.56
-                return parseFloat(parts.slice(0, -1).join('') + '.' + lastPart);
+            // Check if there are participants specified
+            const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
+            let description, participantsStr;
+            
+            if (participantMatch) {
+                description = participantMatch[1].trim();
+                participantsStr = participantMatch[2];
             } else {
-                // Likely thousands: 1.234 -> 1234
-                return parseFloat(cleaned.replace(/\./g, ''));
+                // Handle case where there's a trailing dash but no participants
+                const trailingDashMatch = restOfLine.match(/^(.*?)\s*-\s*$/);
+                if (trailingDashMatch) {
+                    description = trailingDashMatch[1].trim();
+                    participantsStr = null;
+                } else {
+                    description = restOfLine;
+                    participantsStr = null;
+                }
+            }
+
+            if (!isNaN(percentage) && percentage > 0) {
+                const sharedWith = this.resolveParticipants(participantsStr, allNames, personData);
+
+                return {
+                    type: CONSTANTS.TRANSACTION_TYPES.PERCENTAGE,
+                    percentage: percentage,
+                    description: description,
+                    sharedWith: sharedWith
+                };
             }
         }
 
-        if (lastDot === -1) {
-            // Only commas: could be European format (1.234,56) or thousands (1,234)
-            const parts = cleaned.split(',');
-            const lastPart = parts[parts.length - 1];
-            if (lastPart.length <= 2 && parts.length >= 2) {
-                // Likely decimal: 123,45 or 1.234,56
-                return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+        // Try settlement pattern: amount > person
+        const settlementMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
+        if (settlementMatch) {
+            const amount = NumberLogic.parseNumber(settlementMatch[1]);
+            const personStr = settlementMatch[2].trim();
+            const resolvedPerson = PersonLogic.findPersonByNameOrInitial(personStr, allNames, personData);
+
+            if (resolvedPerson && !isNaN(amount) && amount > 0) {
+                return {
+                    type: CONSTANTS.TRANSACTION_TYPES.SETTLEMENT,
+                    amount: amount,
+                    description: '',
+                    settleTo: resolvedPerson
+                };
+            }
+        }
+
+        // Try expense pattern: amount [description] [- participants]
+        const expenseMatch = expenseLine.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.*)$/);
+        if (expenseMatch) {
+            const amount = NumberLogic.parseNumber(expenseMatch[1]);
+            const restOfLine = expenseMatch[2].trim();
+
+            // Check if there are participants specified
+            const participantMatch = restOfLine.match(/^(.*?)\s*-\s*(.+)$/);
+            let description, participantsStr;
+            
+            if (participantMatch) {
+                description = participantMatch[1].trim();
+                participantsStr = participantMatch[2];
             } else {
-                // Likely thousands: 1,234 -> 1234
-                return parseFloat(cleaned.replace(/,/g, ''));
+                // Handle case where there's a trailing dash but no participants
+                const trailingDashMatch = restOfLine.match(/^(.*?)\s*-\s*$/);
+                if (trailingDashMatch) {
+                    description = trailingDashMatch[1].trim();
+                    participantsStr = null;
+                } else {
+                    description = restOfLine;
+                    participantsStr = null;
+                }
+            }
+
+            if (!isNaN(amount) && amount > 0) {
+                const sharedWith = this.resolveParticipants(participantsStr, allNames, personData);
+
+                return {
+                    type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
+                    amount: amount,
+                    description: description,
+                    sharedWith: sharedWith
+                };
             }
         }
 
-        // Both separators present
-        if (lastDot > lastComma) {
-            // Dot comes last: assume US format (1,234.56)
-            const afterDot = cleaned.substring(lastDot + 1);
-            if (afterDot.length <= 2) {
-                return parseFloat(cleaned.replace(/,/g, ''));
-            }
-        } else {
-            // Comma comes last: assume European format (1.234,56)
-            const afterComma = cleaned.substring(lastComma + 1);
-            if (afterComma.length <= 2) {
-                return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-            }
-        }
-
-        // Fallback: remove all separators except the last one
-        const allSeparators = [...cleaned.matchAll(/[.,]/g)];
-        if (allSeparators.length > 0) {
-            const lastSeparator = allSeparators[allSeparators.length - 1];
-            const beforeLast = cleaned.substring(0, lastSeparator.index);
-            const afterLast = cleaned.substring(lastSeparator.index + 1);
-
-            if (afterLast.length <= 2) {
-                // Treat as decimal
-                const cleanBefore = beforeLast.replace(/[.,]/g, '');
-                return parseFloat(cleanBefore + '.' + afterLast);
-            }
-        }
-
-        return parseFloat(cleaned.replace(/[.,]/g, ''));
-    } catch (error) {
-        console.error('Error parsing number:', numStr, error);
-        return NaN;
+        return null;
     }
-}
+};
 
-function formatNumber(amount) {
-    try {
-        // Prevent negative zero display
-        if (amount === 0 || Math.abs(amount) < 0.005) {
-            amount = 0;
-        }
+// Number Logic Module
+const NumberLogic = {
+    // Parse number from string with various formats
+    parseNumber(numStr) {
+        try {
+            numStr = numStr.trim();
 
-        // Use browser's locale for number formatting
-        const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
-        return amount.toLocaleString(locale, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-    } catch (error) {
-        console.error('Error formatting number:', error);
-        // Fallback to fixed decimal if locale formatting fails
-        // Also handle negative zero in fallback
-        if (amount === 0 || Math.abs(amount) < 0.005) {
-            amount = 0;
+            // Handle simple integers
+            if (/^\d+$/.test(numStr)) {
+                return parseFloat(numStr);
+            }
+
+            // Remove any non-digit, non-comma, non-dot characters
+            const cleaned = numStr.replace(/[^\d.,]/g, '');
+            if (!cleaned) return NaN;
+
+            const lastDot = cleaned.lastIndexOf('.');
+            const lastComma = cleaned.lastIndexOf(',');
+
+            // No separators
+            if (lastDot === -1 && lastComma === -1) {
+                return parseFloat(cleaned);
+            }
+
+            // Only dots or only commas
+            if (lastComma === -1) {
+                // Only dots: could be US format (1,234.56) or thousands (1.234)
+                const parts = cleaned.split('.');
+                const lastPart = parts[parts.length - 1];
+                if (lastPart.length <= 2 && parts.length >= 2) {
+                    // Likely decimal: 1.234.56 -> 1234.56
+                    return parseFloat(parts.slice(0, -1).join('') + '.' + lastPart);
+                } else {
+                    // Likely thousands: 1.234 -> 1234
+                    return parseFloat(cleaned.replace(/\./g, ''));
+                }
+            }
+
+            if (lastDot === -1) {
+                // Only commas: could be European format (1.234,56) or thousands (1,234)
+                const parts = cleaned.split(',');
+                const lastPart = parts[parts.length - 1];
+                if (lastPart.length <= 2 && parts.length >= 2) {
+                    // Likely decimal: 123,45 or 1.234,56
+                    return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                } else {
+                    // Likely thousands: 1,234 -> 1234
+                    return parseFloat(cleaned.replace(/,/g, ''));
+                }
+            }
+
+            // Both separators present
+            if (lastDot > lastComma) {
+                // Dot comes last: assume US format (1,234.56)
+                const afterDot = cleaned.substring(lastDot + 1);
+                if (afterDot.length <= 2) {
+                    return parseFloat(cleaned.replace(/,/g, ''));
+                }
+            } else {
+                // Comma comes last: assume European format (1.234,56)
+                const afterComma = cleaned.substring(lastComma + 1);
+                if (afterComma.length <= 2) {
+                    return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+                }
+            }
+
+            // Fallback: remove all separators except the last one
+            const allSeparators = [...cleaned.matchAll(/[.,]/g)];
+            if (allSeparators.length > 0) {
+                const lastSeparator = allSeparators[allSeparators.length - 1];
+                const beforeLast = cleaned.substring(0, lastSeparator.index);
+                const afterLast = cleaned.substring(lastSeparator.index + 1);
+
+                if (afterLast.length <= 2) {
+                    // Treat as decimal
+                    const cleanBefore = beforeLast.replace(/[.,]/g, '');
+                    return parseFloat(cleanBefore + '.' + afterLast);
+                }
+            }
+
+            return parseFloat(cleaned.replace(/[.,]/g, ''));
+        } catch (error) {
+            console.error('Error parsing number:', numStr, error);
+            return NaN;
         }
-        return amount.toFixed(2);
+    },
+
+    // Format number for display
+    formatNumber(amount) {
+        try {
+            // Prevent negative zero display
+            if (amount === 0 || Math.abs(amount) < 0.005) {
+                amount = 0;
+            }
+
+            // Use browser's locale for number formatting
+            const locale = navigator.language || CONSTANTS.DEFAULT_LOCALE;
+            return amount.toLocaleString(locale, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        } catch (error) {
+            console.error('Error formatting number:', error);
+            // Fallback to fixed decimal if locale formatting fails
+            // Also handle negative zero in fallback
+            if (amount === 0 || Math.abs(amount) < 0.005) {
+                amount = 0;
+            }
+            return amount.toFixed(2);
+        }
     }
-}
+};
 
 // Safely escape HTML characters in user input to prevent HTML injection
 // This function handles characters like <, >, &, and quotes
@@ -723,642 +1152,588 @@ function formatTemplate(template, replacements) {
     return result;
 }
 
-// Helper function to format person name with parts
-function formatPersonWithParts(displayName, parts) {
-    if (parts > 1) {
-        return formatTemplate(CONSTANTS.MESSAGES.PERSON_WITH_PARTS_TEMPLATE, {
-            displayName: displayName,
-            parts: parts
-        });
+// ===== DISPLAY/UI UTILITIES =====
+// These utilities handle UI rendering and use the logic utilities
+
+// Person Display Utilities
+const PersonDisplay = {
+    // Format person name with parts count for display
+    formatWithParts(displayName, parts) {
+        return PersonLogic.formatWithParts(displayName, parts);
+    },
+
+    // Clean person name for settlements display
+    cleanForSettlement(displayName) {
+        return PersonLogic.cleanForSettlement(displayName);
+    },
+
+    // Get clean settlement names for display
+    getSettlementNames(settlement, people, fromKey = 'from', toKey = 'to') {
+        return PersonLogic.getSettlementNames(settlement, people, fromKey, toKey);
     }
-    return displayName;
-}
+};
 
-// Helper function to clean person name for settlements (removes !)
-function cleanNameForSettlement(displayName) {
-    return displayName ? displayName.replace(/!$/, '') : displayName;
-}
 
-// Utility function to get clean settlement names
-function getSettlementNames(settlement, people, fromKey = 'from', toKey = 'to') {
-    const fromPerson = people[settlement[fromKey]];
-    const toPerson = people[settlement[toKey]];
-    const fromName = cleanNameForSettlement(fromPerson ? fromPerson.displayName : settlement[fromKey]);
-    const toName = cleanNameForSettlement(toPerson ? toPerson.displayName : settlement[toKey]);
-    return { fromName, toName };
-}
 
-function validateExpenses(text) {
-    const lines = text.split('\n').map(line => line.trim());
-    const warnings = [];
-    const people = [];
-    const personData = {};
+// Validation Display Utilities
+const ValidationDisplay = {
+    // Display validation warnings in the UI
+    displayValidationWarnings(warnings) {
+        const warningDiv = document.getElementById('validationWarning');
+        const contentDiv = document.getElementById('validationContent');
 
-    // First pass: collect all person names
-    const seenDisplayNames = new Map(); // Track display names case-insensitively
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line === '') continue;
-
-        const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
-        const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
-
-        if (!expenseMatch && startsWithLetter && line.length > 0) {
-            people.push(line);
-
-            // Use the same parsing logic as parsePersonName
-            const isExcluded = line.includes('!');
-
-            // Remove ! from the string for processing
-            const cleanedString = line.replace(/!/g, '');
-
-            // Remove all non-letter characters except spaces, keeping only letters and spaces
-            let displayName = cleanedString.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
-
-            // Normalize multiple spaces
-            displayName = displayName.replace(/\s+/g, ' ').trim();
-
-            // Fallback: if displayName is empty, use the cleaned string without numbers
-            if (!displayName) {
-                displayName = cleanedString.replace(/\d+/g, '').trim();
-            }
-
-            // Always format as Name! if excluded, regardless of original ! placement
-            if (isExcluded) {
-                displayName = displayName + '!';
-            }
-
-            // Check for case-insensitive duplicate names
-            const lowerDisplayName = displayName.toLowerCase();
-            if (seenDisplayNames.has(lowerDisplayName)) {
-                const existingLine = seenDisplayNames.get(lowerDisplayName);
-                warnings.push({
-                    text: line,
-                    error: formatTemplate(CONSTANTS.MESSAGES.DUPLICATE_NAME_TEMPLATE, {
-                        currentName: displayName,
-                        existingName: existingLine.displayName
-                    })
-                });
-            } else {
-                seenDisplayNames.set(lowerDisplayName, { displayName });
-            }
-
-            personData[line] = { displayName, originalName: line };
-        }
-    }
-
-    // Second pass: check for ambiguous references in expenses and validate settlements
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line === '') continue;
-
-        // Check settlement lines (amount > person)
-        const settlementMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)\s*>\s*(.+)$/);
-        if (settlementMatch) {
-            const personRef = settlementMatch[2].trim();
-            const validation = validatePersonReference(personRef, people, personData);
-
-            if (validation.isAmbiguous) {
-                const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
-                warnings.push({
-                    text: line,
-                    error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
-                        personRef: validation.personRef,
-                        matchingNames: matchingNames
-                    })
-                });
-            } else if (validation.notFound) {
-                warnings.push({
-                    text: line,
-                    error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
-                        personRef: validation.personRef,
-                        errorMessage: CONSTANTS.MESSAGES.PERSON_NOT_FOUND
-                    })
-                });
-            }
+        if (warnings.length === 0) {
+            warningDiv.style.display = 'none';
+            return;
         }
 
-        // Check expense lines (amount description - person1, person2, ...)
-        const sharedMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)(.+?)\s*-\s*(.+)$/);
-        if (sharedMatch) {
-            const peopleStr = sharedMatch[3].trim();
-            const peopleRefs = peopleStr.split(',').map(p => p.trim());
-
-            for (const personRef of peopleRefs) {
-                const validation = validatePersonReference(personRef, people, personData);
-
-                // Skip empty references
-                if (!validation.personRef) {
-                    continue;
-                }
-
-                if (validation.isAmbiguous) {
-                    const matchingNames = validation.matches.map(name => personData[name].displayName).join(', ');
-                    warnings.push({
-                        text: line,
-                        error: formatTemplate(CONSTANTS.MESSAGES.AMBIGUOUS_PERSON_TEMPLATE, {
-                            personRef: validation.personRef,
-                            matchingNames: matchingNames
-                        })
-                    });
-                } else if (validation.notFound) {
-                    warnings.push({
-                        text: line,
-                        error: formatTemplate(CONSTANTS.MESSAGES.PERSON_NOT_FOUND_TEMPLATE, {
-                            personRef: validation.personRef,
-                            errorMessage: CONSTANTS.MESSAGES.PERSON_NOT_FOUND
-                        })
-                    });
-                }
-            }
-        }
-    }
-
-    return warnings;
-}
-
-function parseExpenses(text) {
-    try {
-        const lines = text.split('\n').map(line => line.trim());
-        const people = {};
-        const transactions = [];
-        let currentPerson = null;
-
-        // Helper function to extract name and parts from a person string
-        function parsePersonName(personString) {
-            // Check for ! anywhere in the string (excluded from shared expenses)
-            const isExcluded = personString.includes('!');
-
-            // Remove ! from the string for processing
-            const cleanedString = personString.replace(/!/g, '');
-
-            // Look for the first number in the string for parts count
-            const numberMatch = cleanedString.match(/(\d+)/);
-            const parts = numberMatch ? parseInt(numberMatch[1]) : 1;
-
-            // Remove all non-letter characters except spaces, keeping only letters and spaces
-            let displayName = cleanedString.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim();
-
-            // Normalize multiple spaces
-            displayName = displayName.replace(/\s+/g, ' ').trim();
-
-            // Fallback: if displayName is empty, use the cleaned string without numbers
-            if (!displayName) {
-                displayName = cleanedString.replace(/\d+/g, '').trim();
-            }
-
-            // Always format as Name! if excluded, regardless of original ! placement
-            if (isExcluded) {
-                displayName = displayName + '!';
-            }
-
-            return {
-                displayName: displayName,
-                parts: parts,
-                originalName: personString,
-                isExcluded: isExcluded
-            };
-        }
-
-        // First pass: collect all person names with their parts
-        const allNames = [];
-        const personData = {};
-        const seenDisplayNames = new Map(); // Track display names case-insensitively
-        for (const line of lines) {
-            if (line === '') continue;
-
-            const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
-            const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
-
-            if (!expenseMatch && startsWithLetter && line.length > 0) {
-                const personInfo = parsePersonName(line);
-
-                // Check for case-insensitive duplicate names
-                const lowerDisplayName = personInfo.displayName.toLowerCase();
-                if (seenDisplayNames.has(lowerDisplayName)) {
-                    // Skip duplicate names to prevent processing errors
-                    continue;
-                }
-                seenDisplayNames.set(lowerDisplayName, personInfo.displayName);
-
-                allNames.push(line);
-                personData[line] = personInfo;
-            }
-        }
-
-        // Initialize people objects
-        allNames.forEach(name => {
-            people[name] = {
-                expenses: [],
-                total: 0,
-                displayName: personData[name].displayName,
-                parts: personData[name].parts,
-                isExcluded: personData[name].isExcluded
-            };
+        let content = '';
+        warnings.forEach(warning => {
+            content += `<div class="warning-line">${escapeHtml(warning.error)}</div>`;
         });
 
-        // Second pass: process transactions
-        for (const line of lines) {
-            if (line === '') {
-                currentPerson = null;
-                continue;
-            }
+        contentDiv.innerHTML = content;
+        warningDiv.style.display = 'block';
+    },
 
-            // Enhanced regex to capture numbers with various formats (positive only)
-            const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
 
-            if (expenseMatch && currentPerson) {
-                // Parse transaction (expense or settlement)
-                const parsedTransaction = parseTransaction(line, allNames, personData);
-                const amount = parseNumber(expenseMatch[1]);
-                const description = line.substring(expenseMatch[0].length).trim();
+};
 
-                if (!isNaN(amount) && amount > 0 && allNames.length > 0) {
-                    let finalTransaction;
 
-                    if (parsedTransaction) {
-                        // Use parsed transaction details
-                        finalTransaction = {
-                            ...parsedTransaction,
-                            paidBy: currentPerson
-                        };
-                    } else {
-                        // Default amounts to be split among all people
-                        finalTransaction = {
-                            type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
-                            amount: amount,
-                            description: description,
-                            sharedWith: [], // empty array means all participants
-                            paidBy: currentPerson
-                        };
+
+// Expense Parsing Logic Module
+const ExpenseLogic = {
+    // Parse expenses text into structured data
+    parseExpenses(text) {
+        try {
+            const lines = text.split('\n').map(line => line.trim());
+            const people = {};
+            const transactions = [];
+            let currentPerson = null;
+
+            // First pass: collect all person names with their parts
+            const allNames = [];
+            const personData = {};
+            const seenDisplayNames = new Map(); // Track display names case-insensitively
+            for (const line of lines) {
+                if (line === '') continue;
+
+                const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+                const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
+
+                if (!expenseMatch && startsWithLetter && line.length > 0) {
+                    const personInfo = PersonLogic.parsePersonName(line);
+
+                    // Check for case-insensitive duplicate names using baseName (without !)
+                    const lowerBaseName = personInfo.baseName.toLowerCase();
+                    if (seenDisplayNames.has(lowerBaseName)) {
+                        // Skip duplicate names to prevent processing errors
+                        continue;
                     }
+                    seenDisplayNames.set(lowerBaseName, personInfo.displayName);
 
-                    transactions.push(finalTransaction);
+                    allNames.push(line);
+                    personData[line] = personInfo;
+                }
+            }
 
-                    // Add to person's expenses list
-                    const expenseEntry = {
-                        description: (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE || finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) && finalTransaction.sharedWith.length > 0
-                            ? formatTemplate(CONSTANTS.MESSAGES.EXPENSE_WITH_PARTICIPANTS_TEMPLATE, {
+            // Initialize people objects
+            allNames.forEach(name => {
+                people[name] = {
+                    expenses: [],
+                    total: 0,
+                    displayName: personData[name].displayName,
+                    parts: personData[name].parts,
+                    isExcluded: personData[name].isExcluded
+                };
+            });
+
+            // Second pass: process transactions
+            for (const line of lines) {
+                if (line === '') {
+                    currentPerson = null;
+                    continue;
+                }
+
+                // Enhanced regex to capture numbers with various formats (positive only)
+                const expenseMatch = line.match(/^(\d+(?:[.,]\d+)*(?:[.,]\d{1,2})?)/);
+
+                if (expenseMatch && currentPerson) {
+                    // Parse transaction (expense or settlement)
+                    const parsedTransaction = TransactionLogic.parseTransaction(line, allNames, personData);
+                    const amount = NumberLogic.parseNumber(expenseMatch[1]);
+                    const description = line.substring(expenseMatch[0].length).trim();
+
+                    if (!isNaN(amount) && amount > 0 && allNames.length > 0) {
+                        let finalTransaction;
+
+                        if (parsedTransaction) {
+                            // Use parsed transaction details
+                            finalTransaction = {
+                                ...parsedTransaction,
+                                paidBy: currentPerson
+                            };
+                        } else {
+                            // Default amounts to be split among all people
+                            finalTransaction = {
+                                type: CONSTANTS.TRANSACTION_TYPES.EXPENSE,
+                                amount: amount,
+                                description: description,
+                                sharedWith: [], // empty array means all participants
+                                paidBy: currentPerson
+                            };
+                        }
+
+                        transactions.push(finalTransaction);
+
+                        // Add to person's expenses list
+                        let description = finalTransaction.description;
+
+                        // Add participants to description if it's an expense/percentage with specific people
+                        const hasSpecificParticipants = (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE ||
+                                                       finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) &&
+                                                       finalTransaction.sharedWith.length > 0;
+
+                        if (hasSpecificParticipants) {
+                            description = formatTemplate(CONSTANTS.MESSAGES.EXPENSE_WITH_PARTICIPANTS_TEMPLATE, {
                                 description: finalTransaction.description,
                                 participants: finalTransaction.sharedWith.join(', ')
-                            })
-                            : finalTransaction.description,
-                        type: finalTransaction.type
-                    };
+                            });
+                        }
 
-                    if (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
-                        expenseEntry.percentage = finalTransaction.percentage;
-                    } else {
-                        expenseEntry.amount = amount;
-                    }
-
-                    people[currentPerson].expenses.push(expenseEntry);
-
-                    // Only add to total for non-percentage transactions (percentages are calculated later)
-                    if (finalTransaction.type !== CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
-                        people[currentPerson].total += amount;
-                    }
-                }
-            } else {
-                // Check if this line could be a person's name (starts with letter)
-                const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
-                if (startsWithLetter && line.length > 0) {
-                    // This is a person's name
-                    currentPerson = line;
-                    if (!people[currentPerson]) {
-                        people[currentPerson] = {
-                            expenses: [],
-                            total: 0
+                        const expenseEntry = {
+                            description: description,
+                            type: finalTransaction.type
                         };
+
+                        if (finalTransaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
+                            expenseEntry.percentage = finalTransaction.percentage;
+                        } else {
+                            expenseEntry.amount = amount;
+                        }
+
+                        people[currentPerson].expenses.push(expenseEntry);
+
+                        // Only add to total for non-percentage transactions (percentages are calculated later)
+                        if (finalTransaction.type !== CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
+                            people[currentPerson].total += amount;
+                        }
                     }
+                } else {
+                    // Check if this line could be a person's name (starts with letter)
+                    const startsWithLetter = /^\s*[a-zA-ZÀ-ÿ]/i.test(line);
+                    if (startsWithLetter && line.length > 0) {
+                        // This is a person's name
+                        currentPerson = line;
+                        if (!people[currentPerson]) {
+                            people[currentPerson] = {
+                                expenses: [],
+                                total: 0
+                            };
+                        }
+                    }
+                    // If line doesn't match expense format and doesn't start with letter, ignore it
                 }
-                // If line doesn't match expense format and doesn't start with letter, ignore it
             }
-        }
 
-        return { people, transactions };
-    } catch (error) {
-        console.error('Error parsing expenses:', error);
-        return { people: {}, transactions: [] };
+            return { people, transactions };
+        } catch (error) {
+            console.error('Error parsing expenses:', error);
+            return { people: {}, transactions: [] };
+        }
     }
-}
+};
 
-function calculateFairShares(names, transactions, peopleData) {
-    // Calculate total amounts each person owes across all expenses
-    // Now uses parts/shares for proportional division instead of equal splits
-    const totalOwed = {};
-    names.forEach(name => {
-        totalOwed[name] = 0;
-    });
-
-    // Filter for expenses only and process them
-    const expenseTransactions = getExpenseTransactions(transactions);
-
-    expenseTransactions.forEach(transaction => {
-        const { amount, sharedWith, paidBy } = transaction;
-        const amountCents = Math.round(amount * 100);
-
-        // Use all participants if sharedWith is empty, otherwise use specified participants
-        let participants = sharedWith.length === 0 ? names : sharedWith;
-
-        // If sharedWith is empty (default sharing), exclude people marked with ! (including the payer if excluded)
-        if (sharedWith.length === 0) {
-            participants = names.filter(name => {
-                const personData = peopleData[name];
-                return !personData?.isExcluded;
-            });
-        }
-
-        // Calculate total parts for this expense
-        const totalParts = participants.reduce((sum, person) => {
-            const parts = peopleData[person] ? peopleData[person].parts : 1;
-            return sum + parts;
-        }, 0);
-
-        // Distribute the expense based on parts
-        let distributedCents = 0;
-        const distributions = [];
-
-        participants.forEach(person => {
-            const parts = peopleData[person] ? peopleData[person].parts : 1;
-            const personShareCents = Math.round((amountCents * parts) / totalParts);
-
-            distributions.push({ person, amount: personShareCents });
-            distributedCents += personShareCents;
+// Calculation Logic Module
+const CalculationLogic = {
+    // Calculate fair shares for each person
+    calculateFairShares(names, transactions, peopleData) {
+        // Calculate total amounts each person owes across all expenses
+        // Now uses parts/shares for proportional division instead of equal splits
+        const totalOwed = {};
+        names.forEach(name => {
+            totalOwed[name] = 0;
         });
 
-        // Handle any rounding difference
-        const difference = amountCents - distributedCents;
-        if (difference !== 0) {
-            // Add the difference to the person with the highest parts (most fair)
-            const maxPartsParticipant = participants.reduce((max, person) => {
+        // Filter for expenses only and process them
+        const expenseTransactions = this.getExpenseTransactions(transactions);
+
+        expenseTransactions.forEach(transaction => {
+            const { amount, sharedWith, paidBy } = transaction;
+            const amountCents = Math.round(amount * 100);
+
+            // Use all participants if sharedWith is empty, otherwise use specified participants
+            let participants = sharedWith.length === 0 ? names : sharedWith;
+
+            // If sharedWith is empty (default sharing), exclude people marked with ! (including the payer if excluded)
+            if (sharedWith.length === 0) {
+                participants = names.filter(name => {
+                    const personData = peopleData[name];
+                    return !personData?.isExcluded;
+                });
+            }
+
+            // Calculate total parts for this expense
+            const totalParts = participants.reduce((sum, person) => {
                 const parts = peopleData[person] ? peopleData[person].parts : 1;
-                const maxParts = peopleData[max] ? peopleData[max].parts : 1;
-                return parts > maxParts ? person : max;
+                return sum + parts;
+            }, 0);
+
+            // Distribute the expense based on parts
+            let distributedCents = 0;
+            const distributions = [];
+
+            participants.forEach(person => {
+                const parts = peopleData[person] ? peopleData[person].parts : 1;
+                const personShareCents = Math.round((amountCents * parts) / totalParts);
+
+                distributions.push({ person, amount: personShareCents });
+                distributedCents += personShareCents;
             });
 
-            const adjustmentIndex = distributions.findIndex(d => d.person === maxPartsParticipant);
-            if (adjustmentIndex !== -1) {
-                distributions[adjustmentIndex].amount += difference;
-            }
-        }
-
-        // Apply the distributions
-        distributions.forEach(({ person, amount }) => {
-            totalOwed[person] += amount;
-        });
-    });
-
-    // Convert cents to dollars for base fair shares
-    const fairShares = {};
-    names.forEach(name => {
-        fairShares[name] = totalOwed[name] / 100;
-    });
-
-    // Apply percentage fees to each person's total
-    const percentageFees = getPercentageTransactions(transactions);
-
-    // Apply percentage fees based on who they affect (sharedWith), not who paid them
-    percentageFees.forEach(fee => {
-        let affectedPeople = fee.sharedWith.length === 0 ? names : fee.sharedWith;
-
-        // If sharedWith is empty (default sharing), exclude people marked with ! (including the payer if excluded)
-        if (fee.sharedWith.length === 0) {
-            affectedPeople = names.filter(name => {
-                const personData = peopleData[name];
-                return !personData?.isExcluded;
-            });
-        }
-
-        affectedPeople.forEach(personName => {
-            if (fairShares[personName] !== undefined) {
-                const currentTotal = fairShares[personName];
-                const feeAmount = (currentTotal * fee.percentage) / 100;
-                fairShares[personName] += feeAmount;
-            }
-        });
-    });
-
-    return fairShares;
-}
-
-function calculateSettlements(people, transactions) {
-    try {
-        const names = Object.keys(people);
-        if (names.length === 0) return [];
-
-        const fairShares = calculateFairShares(names, transactions, people);
-
-        // Calculate balances accounting for existing settlements
-        const balances = {};
-        names.forEach(name => {
-            balances[name] = 0;
-        });
-
-        // Start with what each person paid for expenses minus fair share
-        names.forEach(name => {
-            // Count base expenses paid
-            const expensesPaid = people[name].expenses
-                .filter(expense => expense.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
-                .reduce((sum, expense) => sum + (expense.amount || 0), 0);
-
-            // Count percentage fees paid by this person
-            const baseExpensesTotal = calculateBaseExpenses(transactions);
-            const percentageFeesPaid = getPercentageTransactions(transactions)
-                .filter(transaction => transaction.paidBy === name)
-                .reduce((sum, transaction) => sum + (baseExpensesTotal * transaction.percentage / 100), 0);
-
-            const totalPaid = expensesPaid + percentageFeesPaid;
-            const totalShouldPay = fairShares[name];
-            balances[name] = totalPaid - totalShouldPay;
-        });
-
-        // Apply existing settlements to adjust balances
-        getSettlementTransactions(transactions).forEach(settlement => {
-            if (settlement.settleTo) {
-                // Settlement from paidBy to settleTo
-                balances[settlement.paidBy] += settlement.amount; // Payer owes less
-                balances[settlement.settleTo] -= settlement.amount; // Recipient is owed less
-            }
-        });
-
-        // Calculate remaining settlements needed
-        const settlements = [];
-        const debtors = names.filter(name => balances[name] < -0.01).map(name => ({
-            name,
-            amount: Math.abs(balances[name])
-        })).sort((a, b) => b.amount - a.amount);
-
-        const creditors = names.filter(name => balances[name] > 0.01).map(name => ({
-            name,
-            amount: balances[name]
-        })).sort((a, b) => b.amount - a.amount);
-
-        let i = 0, j = 0;
-        while (i < debtors.length && j < creditors.length) {
-            const debtor = debtors[i];
-            const creditor = creditors[j];
-            const amount = Math.min(debtor.amount, creditor.amount);
-
-            if (amount > 0.01) {
-                settlements.push({
-                    from: debtor.name,
-                    to: creditor.name,
-                    amount: amount
+            // Handle any rounding difference
+            const difference = amountCents - distributedCents;
+            if (difference !== 0) {
+                // Add the difference to the person with the highest parts (most fair)
+                const maxPartsParticipant = participants.reduce((max, person) => {
+                    const parts = peopleData[person] ? peopleData[person].parts : 1;
+                    const maxParts = peopleData[max] ? peopleData[max].parts : 1;
+                    return parts > maxParts ? person : max;
                 });
 
-                debtor.amount -= amount;
-                creditor.amount -= amount;
+                const adjustmentIndex = distributions.findIndex(d => d.person === maxPartsParticipant);
+                if (adjustmentIndex !== -1) {
+                    distributions[adjustmentIndex].amount += difference;
+                }
             }
 
-            if (debtor.amount < 0.01) i++;
-            if (creditor.amount < 0.01) j++;
-        }
-
-        return settlements;
-    } catch (error) {
-        console.error('Error calculating settlements:', error);
-        return [];
-    }
-}
-
-// Utility functions for expense calculations
-function calculateBaseExpenses(transactions) {
-    return getExpenseTransactions(transactions)
-        .reduce((sum, transaction) => sum + transaction.amount, 0);
-}
-
-function calculatePercentageFees(transactions, baseExpenses) {
-    return getPercentageTransactions(transactions)
-        .reduce((sum, transaction) => sum + (baseExpenses * transaction.percentage / 100), 0);
-}
-
-function calculateTotalExpenses(transactions) {
-    const baseExpenses = calculateBaseExpenses(transactions);
-    const percentageFees = calculatePercentageFees(transactions, baseExpenses);
-    return baseExpenses + percentageFees;
-}
-
-function calculateTotalSettlements(transactions) {
-    return getSettlementTransactions(transactions)
-        .reduce((sum, transaction) => sum + transaction.amount, 0);
-}
-
-function getExpenseTransactions(transactions) {
-    return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE);
-}
-
-function getSettlementTransactions(transactions) {
-    return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
-}
-
-function getPercentageTransactions(transactions) {
-    return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE);
-}
-
-function generateTextSummary() {
-    try {
-        const names = Object.keys(currentPeopleData);
-        if (names.length === 0) return '';
-
-        // Calculate total expenses using utility function
-        const totalExpenses = calculateTotalExpenses(currentTransactions);
-
-        // Calculate fair shares using the helper function
-        const fairShares = calculateFairShares(names, currentTransactions, currentPeopleData);
-
-        // Get settlement transactions (completed settlements)
-        const settlementTransactions = getSettlementTransactions(currentTransactions);
-
-        let text = '';
-
-        // BLOCK 1: EXPENSES (expenses only, no settlements)
-        const paymentsText = formatPaymentsText();
-        if (paymentsText) {
-            text += `*${CONSTANTS.MESSAGES.EXPENSES.toUpperCase()}*\n`;
-            text += paymentsText + '\n';
-        }
-
-        // BLOCK 2: COSTS (names and their fair share totals)
-        if (totalExpenses === 0) {
-            text += `\n*${CONSTANTS.MESSAGES.COSTS.toUpperCase()}*\n`;
-        } else {
-            text += `\n*${CONSTANTS.MESSAGES.COSTS.toUpperCase()}* = ${formatNumber(totalExpenses)}\n`;
-        }
-        // Only show non-excluded people in costs
-        const nonExcludedNames = names.filter(name => {
-            const person = currentPeopleData[name];
-            return !person?.isExcluded;
+            // Apply the distributions
+            distributions.forEach(({ person, amount }) => {
+                totalOwed[person] += amount;
+            });
         });
 
-        nonExcludedNames.forEach(name => {
-            const personShare = fairShares[name] || 0;
+        // Convert cents to dollars for base fair shares
+        const fairShares = {};
+        names.forEach(name => {
+            fairShares[name] = totalOwed[name] / 100;
+        });
+
+        // Apply percentage fees to each person's total
+        const percentageFees = this.getPercentageTransactions(transactions);
+
+        // Apply percentage fees based on who they affect (sharedWith), not who paid them
+        percentageFees.forEach(fee => {
+            let affectedPeople = fee.sharedWith.length === 0 ? names : fee.sharedWith;
+
+            // If sharedWith is empty (default sharing), exclude people marked with ! (including the payer if excluded)
+            if (fee.sharedWith.length === 0) {
+                affectedPeople = names.filter(name => {
+                    const personData = peopleData[name];
+                    return !personData?.isExcluded;
+                });
+            }
+
+            affectedPeople.forEach(personName => {
+                if (fairShares[personName] !== undefined) {
+                    const currentTotal = fairShares[personName];
+                    const feeAmount = (currentTotal * fee.percentage) / 100;
+                    fairShares[personName] += feeAmount;
+                }
+            });
+        });
+
+        return fairShares;
+    },
+
+    // Calculate settlements needed
+    calculateSettlements(people, transactions) {
+        try {
+            const names = Object.keys(people);
+            if (names.length === 0) return [];
+
+            const fairShares = this.calculateFairShares(names, transactions, people);
+
+            // Calculate balances accounting for existing settlements
+            const balances = {};
+            names.forEach(name => {
+                balances[name] = 0;
+            });
+
+            // Start with what each person paid for expenses minus fair share
+            names.forEach(name => {
+                // Count base expenses paid
+                const expensesPaid = people[name].expenses
+                    .filter(expense => expense.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE)
+                    .reduce((sum, expense) => sum + (expense.amount || 0), 0);
+
+                // Count percentage fees paid by this person
+                const baseExpensesTotal = this.calculateBaseExpenses(transactions);
+                const percentageFeesPaid = this.getPercentageTransactions(transactions)
+                    .filter(transaction => transaction.paidBy === name)
+                    .reduce((sum, transaction) => sum + (baseExpensesTotal * transaction.percentage / 100), 0);
+
+                const totalPaid = expensesPaid + percentageFeesPaid;
+                const totalShouldPay = fairShares[name];
+                balances[name] = totalPaid - totalShouldPay;
+            });
+
+            // Apply existing settlements to adjust balances
+            this.getSettlementTransactions(transactions).forEach(settlement => {
+                if (settlement.settleTo) {
+                    // Settlement from paidBy to settleTo
+                    balances[settlement.paidBy] += settlement.amount; // Payer owes less
+                    balances[settlement.settleTo] -= settlement.amount; // Recipient is owed less
+                }
+            });
+
+            // Calculate remaining settlements needed
+            const settlements = [];
+            const debtors = names.filter(name => balances[name] < -0.01).map(name => ({
+                name,
+                amount: Math.abs(balances[name])
+            })).sort((a, b) => b.amount - a.amount);
+
+            const creditors = names.filter(name => balances[name] > 0.01).map(name => ({
+                name,
+                amount: balances[name]
+            })).sort((a, b) => b.amount - a.amount);
+
+            let i = 0, j = 0;
+            while (i < debtors.length && j < creditors.length) {
+                const debtor = debtors[i];
+                const creditor = creditors[j];
+                const amount = Math.min(debtor.amount, creditor.amount);
+
+                if (amount > 0.01) {
+                    settlements.push({
+                        from: debtor.name,
+                        to: creditor.name,
+                        amount: amount
+                    });
+
+                    debtor.amount -= amount;
+                    creditor.amount -= amount;
+                }
+
+                if (debtor.amount < 0.01) i++;
+                if (creditor.amount < 0.01) j++;
+            }
+
+            return settlements;
+        } catch (error) {
+            console.error('Error calculating settlements:', error);
+            return [];
+        }
+    },
+
+    // Utility functions for expense calculations
+    calculateBaseExpenses(transactions) {
+        return this.getExpenseTransactions(transactions)
+            .reduce((sum, transaction) => sum + transaction.amount, 0);
+    },
+
+    calculatePercentageFees(transactions, baseExpenses) {
+        return this.getPercentageTransactions(transactions)
+            .reduce((sum, transaction) => sum + (baseExpenses * transaction.percentage / 100), 0);
+    },
+
+    calculateTotalExpenses(transactions) {
+        const baseExpenses = this.calculateBaseExpenses(transactions);
+        const percentageFees = this.calculatePercentageFees(transactions, baseExpenses);
+        return baseExpenses + percentageFees;
+    },
+
+    calculateTotalSettlements(transactions) {
+        return this.getSettlementTransactions(transactions)
+            .reduce((sum, transaction) => sum + transaction.amount, 0);
+    },
+
+    getExpenseTransactions(transactions) {
+        return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.EXPENSE);
+    },
+
+    getSettlementTransactions(transactions) {
+        return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT);
+    },
+
+    getPercentageTransactions(transactions) {
+        return transactions.filter(t => t.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE);
+    }
+};
+
+// Summary generation utilities
+const SummaryUtils = {
+    // Generate expenses block
+    generateExpensesBlock() {
+        const paymentsText = formatPaymentsText();
+        if (!paymentsText) return '';
+
+        return `*${CONSTANTS.MESSAGES.EXPENSES.toUpperCase()}*\n${paymentsText}\n`;
+    },
+
+    // Generate costs block
+    generateCostsBlock(totalExpenses, fairShares) {
+        const names = Object.keys(currentPeopleData);
+        const header = totalExpenses === 0
+            ? `\n*${CONSTANTS.MESSAGES.COSTS.toUpperCase()}*\n`
+            : `\n*${CONSTANTS.MESSAGES.COSTS.toUpperCase()}* = ${NumberLogic.formatNumber(totalExpenses)}\n`;
+
+        // Only show non-excluded people in costs
+        const nonExcludedNames = names.filter(name => !currentPeopleData[name]?.isExcluded);
+
+        const costLines = nonExcludedNames.map(name => {
             const person = currentPeopleData[name];
+            const personShare = fairShares[name] || 0;
             const displayName = person ? person.displayName : name;
             const parts = person ? person.parts : 1;
-            text += `${formatPersonWithParts(displayName, parts)} = ${formatNumber(personShare)}\n`;
-        });
+            return `${PersonDisplay.formatWithParts(displayName, parts)} = ${NumberLogic.formatNumber(personShare)}`;
+        }).join('\n');
 
-        // BLOCK 3: SETTLEMENTS (active settlements + completed settlements)
-        // Dynamic header: "*ALL SETTLED*" if no active settlements, "*SETTLEMENTS*" if there are active ones
-        const settlementsHeader = (totalExpenses !== 0 && currentSettlements.length === 0)
+        return header + costLines + '\n';
+    },
+
+    // Generate settlements block
+    generateSettlementsBlock(totalExpenses, settlementTransactions) {
+        const header = (totalExpenses !== 0 && currentSettlements.length === 0)
             ? `*${CONSTANTS.MESSAGES.ALL_SETTLED.toUpperCase()}*`
             : `*${CONSTANTS.MESSAGES.SETTLEMENTS.toUpperCase()}*`;
 
-        text += '\n' + settlementsHeader + '\n';
+        let content = `\n${header}\n`;
 
-        // First show active settlements that still need to be done
+        // Active settlements
         if (totalExpenses === 0) {
-            text += CONSTANTS.MESSAGES.NOTHING_TO_SETTLE + '\n';
+            content += CONSTANTS.MESSAGES.NOTHING_TO_SETTLE + '\n';
         } else if (currentSettlements.length > 0) {
             currentSettlements.forEach(settlement => {
-                const { fromName, toName } = getSettlementNames(settlement, currentPeopleData);
-                text += formatTemplate(CONSTANTS.MESSAGES.OWES_TEMPLATE, {
-                    fromName: fromName,
-                    amount: formatNumber(settlement.amount),
-                    toName: toName
+                const { fromName, toName } = PersonDisplay.getSettlementNames(settlement, currentPeopleData);
+                content += formatTemplate(CONSTANTS.MESSAGES.OWES_TEMPLATE, {
+                    fromName, amount: NumberLogic.formatNumber(settlement.amount), toName
                 }) + '\n';
             });
         }
 
-        // Then show completed settlements (from settlement transactions)
-        if (settlementTransactions.length > 0) {
-            settlementTransactions.forEach(settlement => {
-                const { fromName, toName } = getSettlementNames(settlement, currentPeopleData, 'paidBy', 'settleTo');
-                text += formatTemplate(CONSTANTS.MESSAGES.PAID_TEMPLATE, {
-                    fromName: fromName,
-                    amount: formatNumber(settlement.amount),
-                    toName: toName
-                }) + '\n';
-            });
-        }
+        // Completed settlements
+        settlementTransactions.forEach(settlement => {
+            const { fromName, toName } = PersonDisplay.getSettlementNames(settlement, currentPeopleData, 'paidBy', 'settleTo');
+            content += formatTemplate(CONSTANTS.MESSAGES.PAID_TEMPLATE, {
+                fromName, amount: NumberLogic.formatNumber(settlement.amount), toName
+            }) + '\n';
+        });
 
-        return text;
-    } catch (error) {
-        console.error('Error generating text summary:', error);
-        return CONSTANTS.MESSAGES.ERROR_GENERATING_SUMMARY;
+        return content;
     }
-}
+};
 
-function applyFormattedTextToTextarea(saveToStorage = true) {
-    try {
-        const textarea = document.getElementById('expenseInput');
-        const formattedText = formatInputText();
+// Textarea utility functions
+const TextareaUtils = {
 
-        if (formattedText && formattedText !== textarea.value) {
-            textarea.value = formattedText;
-            autoExpandTextarea(textarea);
-            if (saveToStorage) {
-                saveToLocalStorage();
+
+    // Auto-expand textarea to fit content
+    autoExpand() {
+        const textarea = DOMUtils.getElement('expenseInput');
+        if (textarea) autoExpandTextarea(textarea);
+    },
+
+    // Apply formatted text to textarea
+    applyFormattedText(saveToStorage = true) {
+        try {
+            const textarea = DOMUtils.getElement('expenseInput');
+            if (!textarea) return false;
+
+            // Parse the current textarea content for formatting
+            const currentInput = textarea.value;
+            const parsed = ExpenseLogic.parseExpenses(currentInput);
+            const formattedText = this.formatTextFromParsedData(parsed.people, parsed.transactions);
+
+            if (formattedText && formattedText !== textarea.value) {
+                textarea.value = formattedText;
+                this.autoExpand();
+                if (saveToStorage) {
+                    saveToLocalStorage();
+                }
+                return true;
             }
-            return true;
+            return false;
+        } catch (error) {
+            console.warn('Apply formatted text error', error);
+            return false;
         }
-        return false;
-    } catch (error) {
-        ErrorHandler.logWarning('Apply formatted text error', error);
-        return false;
+    },
+
+    // Format text from parsed data (similar to formatInputText but uses provided data)
+    formatTextFromParsedData(peopleData, transactions) {
+        try {
+            const names = Object.keys(peopleData || {});
+            if (names.length === 0) return '';
+
+            // Temporarily store the current global state
+            const originalPeopleData = currentPeopleData;
+            const originalTransactions = currentTransactions;
+            
+            // Set the global state to the provided data for formatting
+            currentPeopleData = peopleData;
+            currentTransactions = transactions;
+
+            const maxWidth = FormatDisplay.calculateMaxWidth(transactions || []);
+            let formattedText = '';
+
+            names.forEach(name => {
+                const person = peopleData[name];
+                const displayName = person ? person.displayName : name;
+                const parts = person ? person.parts : 1;
+
+                formattedText += `${PersonDisplay.formatWithParts(displayName, parts)}\n`;
+
+                // Add transactions for this person
+                const personTransactions = (transactions || []).filter(t => t.paidBy === name);
+                personTransactions.forEach(transaction => {
+                    formattedText += FormatDisplay.formatTransactionLine(transaction, maxWidth);
+                });
+
+                // Only add empty line if this person has transactions
+                if (personTransactions.length > 0) {
+                    formattedText += '\n';
+                }
+            });
+
+            // Restore the original global state
+            currentPeopleData = originalPeopleData;
+            currentTransactions = originalTransactions;
+
+            return formattedText.trim();
+        } catch (error) {
+            console.error('Error formatting text from parsed data:', error);
+            return '';
+        }
+    },
+
+    // Clear textarea and reset state
+    clear() {
+        const textarea = DOMUtils.getElement('expenseInput');
+        if (textarea) {
+            textarea.value = '';
+            this.autoExpand();
+        }
+    },
+
+    // Get current textarea value
+    getValue() {
+        const textarea = DOMUtils.getElement('expenseInput');
+        return textarea ? textarea.value : '';
+    },
+
+    // Set textarea value
+    setValue(value) {
+        const textarea = DOMUtils.getElement('expenseInput');
+        if (textarea) {
+            textarea.value = value;
+            this.autoExpand();
+        }
     }
-}
+};
+
+
 
 function handleBlur() {
     try {
@@ -1374,109 +1749,98 @@ function handleBlur() {
         updateResults();
         saveToLocalStorage();
 
-        // Also apply formatting
-        applyFormattedTextToTextarea(false); // Don't save again since we just saved
+        // Only apply formatting if there are no validation warnings
+        const input = TextareaUtils.getValue();
+        const warnings = ValidationLogic.validateExpenses(input);
+        if (warnings.length === 0) {
+            TextareaUtils.applyFormattedText(false); // Don't save again since we just saved
+        }
     } catch (error) {
-        ErrorHandler.logWarning('Blur handler error', error);
+        console.warn('Blur handler error', error);
     }
 }
+
+// Text Formatting Display Utilities
+const FormatDisplay = {
+    // Calculate maximum width for amount alignment
+    calculateMaxWidth(transactions) {
+        let maxWidth = 0; // minimum width
+        transactions.forEach(transaction => {
+            let width = 0;
+            if (transaction.percentage !== undefined) {
+                width = `${transaction.percentage}%`.length;
+            } else if (transaction.amount !== undefined) {
+                width = NumberLogic.formatNumber(transaction.amount).length;
+            }
+            if (width > maxWidth) maxWidth = width;
+        });
+        return maxWidth;
+    },
+
+    // Format transaction amount based on type
+    formatTransactionAmount(transaction) {
+        if (transaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
+            return `${transaction.percentage}%`;
+        }
+        return NumberLogic.formatNumber(transaction.amount);
+    },
+
+    // Format transaction description with participants
+    formatTransactionDescription(transaction) {
+        let description = transaction.description || '';
+
+        if (transaction.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT) {
+            // Settlement: amount > recipient format
+            if (transaction.settleTo) {
+                const recipientData = currentPeopleData[transaction.settleTo];
+                const recipientName = PersonDisplay.cleanForSettlement(recipientData ? recipientData.displayName : transaction.settleTo);
+                return `> ${recipientName}`;
+            }
+        } else if (transaction.sharedWith.length > 0) {
+            // Add participants for expenses and percentages with specific people
+            const participants = transaction.sharedWith.map(p => {
+                const participantData = currentPeopleData[p];
+                return participantData ? participantData.displayName : p;
+            }).join(', ');
+            description = description ? `${description} - ${participants}` : `- ${participants}`;
+        }
+
+        return description;
+    },
+
+    // Format a single transaction line
+    formatTransactionLine(transaction, maxWidth) {
+        const amount = this.formatTransactionAmount(transaction);
+        const description = this.formatTransactionDescription(transaction);
+        const paddedAmount = amount.padStart(maxWidth, ' ');
+        const fullDescription = description ? ` ${description}` : '';
+        return `${paddedAmount}${fullDescription}\n`;
+    }
+};
 
 function formatInputText() {
     try {
         const names = Object.keys(currentPeopleData || {});
         if (names.length === 0) return '';
 
+        const maxWidth = FormatDisplay.calculateMaxWidth(currentTransactions || []);
         let formattedText = '';
 
-        // Calculate maximum width for amounts across all expenses using transactions
-        let maxWidth = 0;
-        if (currentTransactions && Array.isArray(currentTransactions)) {
-            currentTransactions.forEach(transaction => {
-                if (transaction && transaction.amount !== undefined) {
-                    const width = formatNumber(transaction.amount).length;
-                    if (width > maxWidth) maxWidth = width;
-                } else if (transaction && transaction.percentage !== undefined) {
-                    // Handle percentage format width
-                    const width = `${transaction.percentage}%`.length;
-                    if (width > maxWidth) maxWidth = width;
-                }
-            });
-        }
-
-        // Ensure minimum width for proper alignment
-        if (maxWidth === 0) maxWidth = 8;
-
-        // Format expenses by person using transaction data to reconstruct original format
         names.forEach(name => {
             const person = currentPeopleData[name];
             const displayName = person ? person.displayName : name;
             const parts = person ? person.parts : 1;
-            formattedText += `${formatPersonWithParts(displayName, parts)}\n`;
 
-            if (person && person.expenses.length > 0) {
-                // Use transactions to reconstruct the original format
-                const processedTransactions = new Set();
+            formattedText += `${PersonDisplay.formatWithParts(displayName, parts)}\n`;
 
-                if (currentTransactions && Array.isArray(currentTransactions)) {
-                    currentTransactions.forEach(transaction => {
-                        if (transaction && transaction.paidBy === name && !processedTransactions.has(transaction)) {
-                            processedTransactions.add(transaction);
+            // Add transactions for this person
+            const personTransactions = (currentTransactions || []).filter(t => t.paidBy === name);
+            personTransactions.forEach(transaction => {
+                formattedText += FormatDisplay.formatTransactionLine(transaction, maxWidth);
+            });
 
-                            let formattedAmount, description = transaction.description || '';
-
-                        if (transaction.type === CONSTANTS.TRANSACTION_TYPES.SETTLEMENT) {
-                            // Settlement: amount > recipient format
-                            formattedAmount = formatNumber(transaction.amount);
-                            if (transaction.settleTo) {
-                                const recipientData = currentPeopleData[transaction.settleTo];
-                                const recipientName = cleanNameForSettlement(recipientData ? recipientData.displayName : transaction.settleTo);
-                                description = `> ${recipientName}`;
-                            }
-                        } else if (transaction.type === CONSTANTS.TRANSACTION_TYPES.PERCENTAGE) {
-                            // Percentage: percentage% description format
-                            formattedAmount = `${transaction.percentage}%`;
-
-                            // Add participant names only if applied to specific people (not all)
-                            if (transaction.sharedWith.length > 0) {
-                                // Add participants to description
-                                const participants = transaction.sharedWith.map(p => {
-                                    const participantData = currentPeopleData[p];
-                                    return participantData ? participantData.displayName : p;
-                                }).join(', ');
-                                description = description ? `${description} - ${participants}` : `- ${participants}`;
-                            }
-                        } else {
-                            // Expense: positive amount
-                            formattedAmount = formatNumber(transaction.amount);
-
-                            // Add participant names only if split with specific people (not all)
-                            if (transaction.sharedWith.length > 0) {
-                                // Add participants to description
-                                const participants = transaction.sharedWith.map(p => {
-                                    const participantData = currentPeopleData[p];
-                                    return participantData ? participantData.displayName : p;
-                                }).join(', ');
-                                description = description ? `${description} - ${participants}` : `- ${participants}`;
-                            }
-                        }
-
-                        const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
-                        const fullDescription = description ? ` ${description}` : '';
-                        formattedText += `${paddedAmount}${fullDescription}\n`;
-                    }
-                });
-
-                // Also add any individual expenses that aren't part of transactions (like manually entered settlements)
-                person.expenses.forEach(expense => {
-                    if (expense.isSettlement) {
-                        const formattedAmount = formatNumber(expense.amount);
-                            const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
-                            const fullDescription = description ? ` ${description}` : '';
-                            formattedText += `${paddedAmount}${fullDescription}\n`;
-                        }
-                    });
-                }
-
+            // Only add empty line if this person has transactions
+            if (personTransactions.length > 0) {
                 formattedText += '\n';
             }
         });
@@ -1498,8 +1862,8 @@ function formatPaymentsText() {
 
         // Calculate maximum width for amounts across all expense transactions only
         let maxWidth = 0;
-        getExpenseTransactions(currentTransactions).forEach(transaction => {
-            const width = formatNumber(transaction.amount).length;
+        CalculationLogic.getExpenseTransactions(currentTransactions).forEach(transaction => {
+            const width = NumberLogic.formatNumber(transaction.amount).length;
             if (width > maxWidth) maxWidth = width;
         });
 
@@ -1518,7 +1882,7 @@ function formatPaymentsText() {
             );
 
             if (hasExpenses) {
-                formattedText += `${formatPersonWithParts(displayName, parts)}\n`;
+                formattedText += `${PersonDisplay.formatWithParts(displayName, parts)}\n`;
 
                 // Use transactions to reconstruct the original format (EXPENSES ONLY)
                 const processedTransactions = new Set();
@@ -1530,7 +1894,7 @@ function formatPaymentsText() {
                         processedTransactions.add(transaction);
 
                         let description = transaction.description || '';
-                        const formattedAmount = formatNumber(transaction.amount);
+                        const formattedAmount = NumberLogic.formatNumber(transaction.amount);
 
                         // Add participant names only if split with specific people (not all)
                         if (transaction.sharedWith.length > 0) {
@@ -1561,7 +1925,19 @@ function formatPaymentsText() {
 
 function copyToClipboard() {
     try {
-        const textSummary = generateTextSummary();
+
+        const names = Object.keys(currentPeopleData);
+        if (names.length === 0) return;
+
+        const totalExpenses = CalculationLogic.calculateTotalExpenses(currentTransactions);
+        const fairShares = CalculationLogic.calculateFairShares(names, currentTransactions, currentPeopleData);
+        const settlementTransactions = CalculationLogic.getSettlementTransactions(currentTransactions);
+
+        let textSummary = [
+            SummaryUtils.generateExpensesBlock(),
+            SummaryUtils.generateCostsBlock(totalExpenses, fairShares),
+            SummaryUtils.generateSettlementsBlock(totalExpenses, settlementTransactions)
+        ].join('');
 
         if (!textSummary) {
             alert(CONSTANTS.MESSAGES.NOTHING_TO_COPY);
@@ -1569,47 +1945,21 @@ function copyToClipboard() {
         }
 
         // Also format and update the input text
-        applyFormattedTextToTextarea();
+        TextareaUtils.applyFormattedText();
 
-        // Try to use the modern clipboard API
+        // Use the modern clipboard API
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(textSummary).then(() => {
                 showCopySuccess();
             }).catch(err => {
                 console.error('Failed to copy with clipboard API:', err);
-                fallbackCopy(textSummary);
+                alert(CONSTANTS.MESSAGES.COPY_ERROR);
             });
         } else {
-            fallbackCopy(textSummary);
+            alert(CONSTANTS.MESSAGES.COPY_ERROR);
         }
     } catch (error) {
         ErrorHandler.handleUIError(error, CONSTANTS.MESSAGES.COPY_ERROR);
-    }
-}
-
-function fallbackCopy(text) {
-    try {
-        // Fallback method using textarea
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-
-        if (successful) {
-            showCopySuccess();
-        } else {
-            alert(CONSTANTS.MESSAGES.COPY_MANUAL_SELECT);
-        }
-    } catch (err) {
-        console.error('Fallback copy failed:', err);
-        alert(CONSTANTS.MESSAGES.COPY_MANUAL_FALLBACK);
     }
 }
 
@@ -1625,35 +1975,17 @@ function showCopySuccess() {
     }, CONSTANTS.COPY_SUCCESS_TIMEOUT);
 }
 
-function displayValidationWarnings(warnings) {
-    const warningDiv = document.getElementById('validationWarning');
-    const contentDiv = document.getElementById('validationContent');
 
-    if (warnings.length === 0) {
-        warningDiv.style.display = 'none';
-        return;
-    }
-
-    let content = '';
-    warnings.forEach(warning => {
-        content += generateValidationWarningHTML(warning.error);
-    });
-
-    contentDiv.innerHTML = content;
-    warningDiv.style.display = 'block';
-}
 
 function updateResults() {
     try {
-        const input = document.getElementById('expenseInput').value;
+        const input = TextareaUtils.getValue();
         const expensesDiv = document.getElementById('expenses-results');
         const settlementsDiv = document.getElementById('settlements-results');
-        const copyButton = document.getElementById('copyButton');
-        const resetButton = document.getElementById('resetButton');
 
         // Always display validation warnings
-        const warnings = validateExpenses(input);
-        displayValidationWarnings(warnings);
+        const warnings = ValidationLogic.validateExpenses(input);
+        ValidationDisplay.displayValidationWarnings(warnings);
 
         // If there are critical validation errors, just show warnings and return
         if (warnings.length > 0) {
@@ -1666,136 +1998,33 @@ function updateResults() {
         let names = [];
 
         if (input.trim()) {
-            const parsed = parseExpenses(input);
+            const parsed = ExpenseLogic.parseExpenses(input);
             people = parsed.people;
             transactions = parsed.transactions;
             names = Object.keys(people);
         }
 
         if (!input.trim() || names.length === 0) {
-            expensesDiv.innerHTML = getEmptyExpensesHTML();
-            settlementsDiv.innerHTML = getEmptySettlementsHTML();
+            // Use refresh manager to handle empty state properly
+            const refreshOccurred = RefreshManager.executeRefresh({}, [], [], expensesDiv, settlementsDiv, input);
             setButtonVisibility(false);
-            resetGlobalState();
             return;
         }
 
-        // Store current data for copying
-        currentPeopleData = people;
-        currentTransactions = transactions;
-        currentSettlements = calculateSettlements(people, transactions);
-
-        // Calculate totals using utility functions
-        const totalExpenses = calculateTotalExpenses(transactions);
-        const totalSettlements = calculateTotalSettlements(transactions);
-
-        // Calculate fair share amounts using the helper function
-        const fairShares = calculateFairShares(names, transactions, people);
-
-        // Create keys for comparison
-        const newPeopleNames = names.slice();
-        const newSettlementKeys = currentSettlements.map(s => `${s.from}->${s.to}-${s.amount}`);
-
-        // Find removed items
-        const removedPeopleNames = previousPeopleNames.filter(name => !newPeopleNames.includes(name));
-        const removedSettlementKeys = previousSettlementKeys.filter(key => !newSettlementKeys.includes(key));
-
-        // If items are being removed, animate them out first
-        proceedWithUpdate();
-
-        function proceedWithUpdate() {
-            // Determine if we should animate based on changes
-            const newPeopleCount = names.length + 2; // +2 for gastos and acertos rows
-            const newSettlementCount = currentSettlements.length;
-            const shouldAnimateNewItems = newPeopleCount > previousPeopleCount || newSettlementCount > previousSettlementCount || previousPeopleCount === 0;
-            const isFirstLoad = previousPeopleCount === 0;
-
-            let expensesHtml = '';
-            let settlementsHtml = '';
-            let animationDelay = 0;
-
-            // EXPENSES SECTION
-            // Expenses total as header
-            const totalShouldAnimate = isFirstLoad;
-            const totalAnimationClass = totalShouldAnimate ? 'slide-in' : '';
-            const totalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
-
-                expensesHtml += `
-                    <div class="summary expenses-summary expenses-total ${totalAnimationClass}" ${totalAnimationStyle}>
-                        <span class="label">${CONSTANTS.MESSAGES.COSTS}</span>
-                        <span class="total">${formatNumber(totalExpenses)}</span>
-                    </div>`;
-            if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
-
-            // Show individual fair share expenses (excluding settlements and excluded people)
-            const nonExcludedNames = names.filter(name => {
-                const person = people[name];
-                return !person?.isExcluded;
-            });
-
-            nonExcludedNames.forEach((name, index) => {
-                const fairShare = fairShares[name] || 0;
-                const displayName = people[name] ? people[name].displayName : name;
-                const parts = people[name] ? people[name].parts : 1;
-
-                const shouldAnimate = shouldAnimateNewItems && index >= previousPeopleCount - 1;
-                expensesHtml += generatePersonSummaryHTML(name, fairShare, displayName, parts, shouldAnimate, animationDelay);
-                if (shouldAnimate) animationDelay += CONSTANTS.PERSON_ANIMATION_DELAY;
-            });
-
-            // SETTLEMENTS SECTION
-            // Always show settlements section
-            const settlementTotalAnimationStyle = totalShouldAnimate ? `style="animation-delay: ${animationDelay}ms"` : '';
-
-            // Dynamic title based on state
-            let sectionTitle;
-            if (totalExpenses === 0 && currentSettlements.length === 0) {
-                sectionTitle = CONSTANTS.MESSAGES.NOTHING_TO_SETTLE;
-            } else if (totalExpenses !== 0 && currentSettlements.length === 0) {
-                sectionTitle = CONSTANTS.MESSAGES.ALL_SETTLED;
-            } else {
-                sectionTitle = CONSTANTS.MESSAGES.SETTLEMENTS;
-            }
-
-            settlementsHtml += `
-                <div class="summary settlements-summary settlements-total ${totalAnimationClass}" ${settlementTotalAnimationStyle}>
-                    <span class="label">${sectionTitle}</span>
-                </div>`;
-
-            if (totalShouldAnimate) animationDelay += CONSTANTS.TOTAL_ROW_EXTRA_DELAY;
-
-            // Show active settlements
-            if (totalExpenses !== 0 && currentSettlements.length > 0) {
-                currentSettlements.forEach((settlement, index) => {
-                    const shouldAnimate = shouldAnimateNewItems && index >= previousSettlementCount;
-                    settlementsHtml += generateSettlementHTML(settlement, index, shouldAnimate, animationDelay, people);
-                    if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
-                });
-            }
-
-            // Show settlement log entries (completed settlements from textarea)
-            const settlementTransactions = getSettlementTransactions(transactions);
-            if (settlementTransactions.length > 0) {
-                settlementTransactions.forEach((settlement, index) => {
-                    const shouldAnimate = shouldAnimateNewItems;
-                    settlementsHtml += generateSettlementLogHTML(settlement, shouldAnimate, animationDelay, people);
-                    if (shouldAnimate) animationDelay += CONSTANTS.SETTLEMENT_ANIMATION_DELAY;
-                });
-            }
-
-            expensesDiv.innerHTML = expensesHtml;
-            settlementsDiv.innerHTML = settlementsHtml;
-
-            // Update tracking variables
-            previousResultsHTML = expensesHtml + settlementsHtml;
-            previousPeopleCount = newPeopleCount;
-            previousSettlementCount = newSettlementCount;
-            previousPeopleNames = newPeopleNames.slice();
-            previousSettlementKeys = newSettlementKeys.slice();
-
-            // Show buttons when there are results
-            setButtonVisibility(true);
+        // Calculate settlements for comparison
+        const settlements = CalculationLogic.calculateSettlements(people, transactions);
+        
+        // Execute unified refresh logic
+        const refreshOccurred = RefreshManager.executeRefresh(people, transactions, settlements, expensesDiv, settlementsDiv, input);
+        
+        if (!refreshOccurred) {
+            return; // Nothing changed, exit early
         }
+
+
+
+        // Show buttons when there are results
+        setButtonVisibility(true);
 
     } catch (error) {
         ErrorHandler.handleProcessingError(error);
@@ -1814,15 +2043,13 @@ function settlePayment(settlementIndex) {
         }
 
         // Get display names for the settlement
-        const { fromName, toName } = getSettlementNames(settlement, currentPeopleData);
-        // Note: fromName is used for display purposes and should keep the ! if present
-        const fromDisplayName = currentPeopleData[settlement.from]?.displayName || settlement.from;
+        const { fromName, toName } = PersonDisplay.getSettlementNames(settlement, currentPeopleData);
 
         const textarea = document.getElementById('expenseInput');
         const currentText = textarea.value;
 
         // Create the payment line in the format: "amount > recipient"
-        const formattedAmount = formatNumber(Number(settlement.amount));
+        const formattedAmount = NumberLogic.formatNumber(Number(settlement.amount));
         const settlementLine = `${formattedAmount} > ${toName}`;
 
         // Find the payer's section and add the payment line
@@ -1872,14 +2099,14 @@ function settlePayment(settlementIndex) {
             textarea.value = lines.join('\n');
 
             // Reparse the expenses to update data structures with the new settlement
-            const { people, transactions } = parseExpenses(textarea.value);
+            const { people, transactions } = ExpenseLogic.parseExpenses(textarea.value);
 
             if (people && transactions) {
                 currentPeopleData = people;
                 currentTransactions = transactions;
 
                 // Now reformat the input text with updated data
-                applyFormattedTextToTextarea(false); // Don't save to storage here, we'll save below
+                TextareaUtils.applyFormattedText(false); // Don't save to storage here, we'll save below
             }
 
             // Save to localStorage after updating textarea
@@ -1936,7 +2163,7 @@ document.getElementById('expenseInput').addEventListener('input', function() {
             }
         }, CONSTANTS.DEBOUNCE_TIMEOUT);
     } catch (error) {
-        ErrorHandler.logWarning('Input handler error', error);
+        console.warn('Input handler error', error);
     }
 });
 
@@ -1958,11 +2185,15 @@ function resetData() {
             // Clear localStorage
             localStorage.removeItem(CONSTANTS.STORAGE_KEY);
 
-            const textarea = document.getElementById('expenseInput');
-            textarea.value = '';
-            autoExpandTextarea(textarea);
+            TextareaUtils.clear();
 
-            resetGlobalState();
+            // Reset global state variables
+            debounceTimer = null;
+            currentPeopleData = {};
+            currentSettlements = [];
+            currentTransactions = [];
+            isSettling = false;
+            
             updateResults();
 
         } catch (error) {
@@ -1973,8 +2204,8 @@ function resetData() {
 
 function saveToLocalStorage() {
     try {
-        const textarea = document.getElementById('expenseInput');
-        localStorage.setItem(CONSTANTS.STORAGE_KEY, textarea.value);
+        const value = TextareaUtils.getValue();
+        localStorage.setItem(CONSTANTS.STORAGE_KEY, value);
     } catch (error) {
         console.error('Error saving to localStorage:', error);
     }
@@ -1984,26 +2215,19 @@ function loadFromLocalStorage() {
     try {
         const savedData = localStorage.getItem(CONSTANTS.STORAGE_KEY);
         if (savedData) {
-            const textarea = document.getElementById('expenseInput');
-            textarea.value = savedData;
-
-            // Check for validation errors first
-            const warnings = validateExpenses(savedData);
-            if (warnings.length === 0) {
-                // Only parse and reformat if there are no validation errors
-                const { people, transactions } = parseExpenses(savedData);
-                if (people && transactions) {
-                    currentPeopleData = people;
-                    currentTransactions = transactions;
-
-                    applyFormattedTextToTextarea(false); // Don't save to storage during load
-                }
-            }
+            TextareaUtils.setValue(savedData);
 
             // Auto-expand after loading content
-            autoExpandTextarea(textarea);
-            // Update results after loading
+            TextareaUtils.autoExpand();
+            
+            // Update results after loading - this will parse and set the global state
             updateResults();
+            
+            // Apply formatting after the results are updated
+            const warnings = ValidationLogic.validateExpenses(savedData);
+            if (warnings.length === 0) {
+                TextareaUtils.applyFormattedText(false); // Don't save to storage during load
+            }
         }
     } catch (error) {
         console.error('Error loading from localStorage:', error);

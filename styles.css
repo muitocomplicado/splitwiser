@@ -313,6 +313,44 @@ button:active {
     }
 }
 
+/* CSS Custom Properties for animation timing */
+:root {
+    --stagger-delay: 50ms;
+    --base-delay: 0ms;
+    --section-gap: 100ms;
+}
+
+/* Base animation for all summary items */
+.summary {
+    opacity: 0;
+    transform: translateY(-15px);
+    animation: slideDown 0.3s ease-out forwards;
+    /* Default delay calculation: base + (index * stagger) */
+    animation-delay: calc(var(--base-delay) + var(--stagger-delay) * var(--index, 0));
+}
+
+/* Expenses section - starts immediately */
+#expenses-results {
+    --base-delay: 0ms;
+}
+
+/* Settlements section - starts after expenses with gap */
+#settlements-results {
+    --base-delay: var(--section-gap);
+}
+
+/* For items that shouldn't animate on updates */
+.summary.no-animate {
+    opacity: 1;
+    transform: translateY(0);
+    animation: none;
+}
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 
 
 .slide-in {
