@@ -152,7 +152,7 @@ const LOCALE = {
             EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Legumes\n30,75 Acompanhamentos\n89,25 Carne\n\nCris 4\n45,25 Bebidas\n10 Gelo\n\nAna 5\n35 Sobremesa\n20 Suprimentos',
 
             EXAMPLE_BILL_SPLIT_TITLE: 'Divisão de Conta',
-            EXAMPLE_BILL_SPLIT_TEXT: 'Conta!\n30 Aperitivos\n12 Bebida - D\n12 Bebida - C\n16 Prato - D\n18 Prato - C\n32 Prato - A\n10% Taxa de serviço\n\nAna 2\nDavid\nCris'
+            EXAMPLE_BILL_SPLIT_TEXT: 'Restaurante!\n30 Aperitivos\n12 Bebida - D\n12 Bebida - C\n16 Prato - D\n18 Prato - C\n32 Prato - A\n10% Taxa de serviço\n\nAna 2\nDavid\nCris'
         },
         'es-ES': {
             SETTLED_TEXT: 'LIQUIDADO',
@@ -221,7 +221,7 @@ const LOCALE = {
             EXAMPLE_FAMILY_DINNER_TEXT: 'David 2\n75,50 Verduras\n30,75 Guarniciones\n89,25 Carne\n\nCris 4\n45,25 Bebidas\n10 Hielo\n\nAna 5\n35 Postre\n20 Suministros',
 
             EXAMPLE_BILL_SPLIT_TITLE: 'División de Cuenta',
-            EXAMPLE_BILL_SPLIT_TEXT: 'Cuenta!\n30 Entradas\n12 Bebida - D\n12 Bebida - C\n16 Plato - D\n18 Plato - C\n32 Plato - A\n10% Tarifa de servicio\n\nAna 2\nDavid\nCris'
+            EXAMPLE_BILL_SPLIT_TEXT: 'Restaurante!\n30 Entradas\n12 Bebida - D\n12 Bebida - C\n16 Plato - D\n18 Plato - C\n32 Plato - A\n10% Tarifa de servicio\n\nAna 2\nDavid\nCris'
         }
     },
 
