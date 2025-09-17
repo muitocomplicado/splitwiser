@@ -863,13 +863,10 @@ function formatPaymentsText() {
 
         let formattedText = '';
 
-        // Calculate maximum width for amounts across all expense transactions only
-        let maxWidth = 0;
-        CalculationLogic.getExpenseTransactions(currentTransactions).forEach(transaction => {
-            const width = NumberLogic.formatNumber(transaction.amount).length;
-            if (width > maxWidth) maxWidth = width;
-        });
-
+        // Calculate maximum width for amounts across expense transactions only
+        const expenseTransactions = CalculationLogic.getExpenseTransactions(currentTransactions);
+        let maxWidth = FormatDisplay.calculateMaxWidth(expenseTransactions);
+        
         // Ensure minimum width for proper alignment
         if (maxWidth === 0) maxWidth = 8;
 
@@ -896,22 +893,7 @@ function formatPaymentsText() {
                         !processedTransactions.has(transaction)) {
                         processedTransactions.add(transaction);
 
-                        let description = transaction.description || '';
-                        const formattedAmount = NumberLogic.formatNumber(transaction.amount);
-
-                        // Add participant names only if split with specific people (not all)
-                        if (transaction.sharedWith.length > 0) {
-                            // Add participants to description
-                            const participants = transaction.sharedWith.map(p => {
-                                const participantData = currentPeopleData[p];
-                                return participantData ? participantData.displayName : p;
-                            }).join(', ');
-                            description = description ? `${description} - ${participants}` : `- ${participants}`;
-                        }
-
-                        const paddedAmount = formattedAmount.padStart(maxWidth, ' ');
-                        const fullDescription = description ? ` ${description}` : '';
-                        formattedText += `${paddedAmount}${fullDescription}\n`;
+                        formattedText += FormatDisplay.formatTransactionLine(transaction, maxWidth);
                     }
                 });
 

@@ -572,7 +572,8 @@ const ExpenseLogic = {
                                                     finalTransaction.sharedWith.length > 0;
 
                     if (hasSpecificParticipants) {
-                            description = formatTemplate(LOCALE.getString('EXPENSE_WITH_PARTICIPANTS_TEMPLATE'), {                                description: finalTransaction.description,
+                        description = formatTemplate(LOCALE.getString('EXPENSE_WITH_PARTICIPANTS_TEMPLATE'), {
+                            description: finalTransaction.description,
                             participants: finalTransaction.sharedWith.join(', ')
                         });
                     }
