@@ -1209,6 +1209,11 @@ function loadFromLocalStorage() {
 
 // Auto-expanding textarea functionality
 function autoExpandTextarea(textarea) {
+    // Store current scroll position and cursor position
+    const scrollTop = textarea.scrollTop;
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+    
     // Reset height to measure the scroll height accurately
     textarea.style.height = 'auto';
 
@@ -1237,6 +1242,29 @@ function autoExpandTextarea(textarea) {
     const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
 
     textarea.style.height = newHeight + 'px';
+    
+    // Restore cursor position
+    textarea.setSelectionRange(selectionStart, selectionEnd);
+    
+    // On mobile, ensure cursor stays visible by scrolling to cursor position
+    if (isMobile && textarea.scrollHeight > newHeight) {
+        // Calculate line height to estimate cursor position
+        const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight) || 20;
+        const textBeforeCursor = textarea.value.substring(0, selectionStart);
+        const linesBeforeCursor = textBeforeCursor.split('\n').length - 1;
+        const cursorTop = linesBeforeCursor * lineHeight;
+        
+        // If cursor is below visible area, scroll to show it
+        if (cursorTop > scrollTop + newHeight - lineHeight * 2) {
+            textarea.scrollTop = Math.max(0, cursorTop - newHeight + lineHeight * 3);
+        } else if (cursorTop < scrollTop + lineHeight) {
+            // If cursor is above visible area, scroll up
+            textarea.scrollTop = Math.max(0, cursorTop - lineHeight);
+        } else {
+            // Try to restore previous scroll position if cursor is still visible
+            textarea.scrollTop = scrollTop;
+        }
+    }
 }
 
 // Safely escape HTML characters in user input to prevent HTML injection
