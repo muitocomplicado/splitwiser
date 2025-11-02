@@ -133,15 +133,15 @@
         // Update script sources with dynamic version parameter
         document.getElementById('locale-script').src = `locale.js?v=${testVersion}`;
         document.getElementById('lib-script').src = `lib.js?v=${testVersion}`;
-        
+
         // Force locale to 'en-US' for consistent test results
         // Store original navigator.language for locale-specific tests
         const originalNavigatorLanguage = navigator.language;
-        Object.defineProperty(navigator, 'language', { 
-            value: 'en-US', 
-            configurable: true 
+        Object.defineProperty(navigator, 'language', {
+            value: 'en-US',
+            configurable: true
         });
-        
+
         // Override LOCALE initialization to force 'en-US'
         window.addEventListener('load', () => {
             if (window.LOCALE) {
@@ -609,7 +609,7 @@
             test.test('calculateFairShares with equal parts', () => {
                 const names = ['John', 'Jane'];
                 const transactions = [
-                    { type: 'expense', amount: 100, sharedWith: [] }
+                    { type: 'expense', amount: 100, sharedWith: [], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -623,21 +623,21 @@
             test.test('calculateFairShares with different parts', () => {
                 const names = ['John', 'Jane'];
                 const transactions = [
-                    { type: 'expense', amount: 100, sharedWith: [] }
+                    { type: 'expense', amount: 100, sharedWith: [], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 2, isExcluded: false },
                     'Jane': { parts: 1, isExcluded: false }
                 };
                 const result = CalculationLogic.calculateFairShares(names, transactions, peopleData);
-                test.assertApproxEqual(result.John, 66.67, 0.02); // Increased tolerance for floating-point precision (100*2/3)
-                test.assertApproxEqual(result.Jane, 33.33, 0.02); // Increased tolerance for floating-point precision (100*1/3)
+                test.assertEqual(result.John, 66.67);
+                test.assertEqual(result.Jane, 33.33);
             });
 
             test.test('calculateFairShares excludes excluded people', () => {
                 const names = ['John', 'Jane', 'Restaurant'];
                 const transactions = [
-                    { type: 'expense', amount: 100, sharedWith: [] }
+                    { type: 'expense', amount: 100, sharedWith: [], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -688,7 +688,7 @@
             test.test('calculateFairShares with expense shared by specific people', () => {
                 const names = ['John', 'Jane', 'Bob'];
                 const transactions = [
-                    { type: 'expense', amount: 60, sharedWith: ['John', 'Jane'] }
+                    { type: 'expense', amount: 60, sharedWith: ['John', 'Jane'], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -704,7 +704,7 @@
             test.test('calculateFairShares with expense shared by specific people with different parts', () => {
                 const names = ['John', 'Jane', 'Bob'];
                 const transactions = [
-                    { type: 'expense', amount: 90, sharedWith: ['John', 'Jane'] }
+                    { type: 'expense', amount: 90, sharedWith: ['John', 'Jane'], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 2, isExcluded: false },
@@ -720,9 +720,9 @@
             test.test('calculateFairShares with multiple expenses with different participants', () => {
                 const names = ['John', 'Jane', 'Bob', 'Alice'];
                 const transactions = [
-                    { type: 'expense', amount: 100, sharedWith: ['John', 'Jane'] },
-                    { type: 'expense', amount: 60, sharedWith: ['Bob', 'Alice'] },
-                    { type: 'expense', amount: 80, sharedWith: ['John', 'Bob', 'Alice'] }
+                    { type: 'expense', amount: 100, sharedWith: ['John', 'Jane'], paidBy: 'John' },
+                    { type: 'expense', amount: 60, sharedWith: ['Bob', 'Alice'], paidBy: 'Bob' },
+                    { type: 'expense', amount: 80, sharedWith: ['John', 'Bob', 'Alice'], paidBy: 'Alice' }
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -731,17 +731,17 @@
                     'Alice': { parts: 1, isExcluded: false }
                 };
                 const result = CalculationLogic.calculateFairShares(names, transactions, peopleData);
-                test.assertApproxEqual(result.John, 76.67, 0.02); // 50 + 26.67 (increased tolerance for floating-point precision)
-                test.assertEqual(result.Jane, 50); // 50 only
-                test.assertApproxEqual(result.Bob, 56.67, 0.02); // 30 + 26.67 (increased tolerance for floating-point precision)
-                test.assertApproxEqual(result.Alice, 56.67, 0.02); // 30 + 26.67 (increased tolerance for floating-point precision)
+                test.assertEqual(result.John, 76.67);
+                test.assertEqual(result.Jane, 50);
+                test.assertEqual(result.Bob, 56.67);
+                test.assertEqual(result.Alice, 56.66);
             });
 
             test.test('calculateFairShares with percentage fee applied to specific participants', () => {
                 const names = ['John', 'Jane', 'Bob'];
                 const transactions = [
-                    { type: 'expense', amount: 100, sharedWith: ['John', 'Jane'] },
-                    { type: 'percentage', percentage: 10, sharedWith: ['John', 'Jane'] }
+                    { type: 'expense', amount: 100, sharedWith: ['John', 'Jane'], paidBy: 'John' },
+                    { type: 'percentage', percentage: 10, sharedWith: ['John', 'Jane'], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -757,8 +757,8 @@
             test.test('calculateFairShares with mixed shared and all-participant expenses', () => {
                 const names = ['John', 'Jane', 'Bob'];
                 const transactions = [
-                    { type: 'expense', amount: 90, sharedWith: [] }, // All participants
-                    { type: 'expense', amount: 60, sharedWith: ['John', 'Jane'] } // Specific participants
+                    { type: 'expense', amount: 90, sharedWith: [], paidBy: 'John' }, // All participants
+                    { type: 'expense', amount: 60, sharedWith: ['John', 'Jane'], paidBy: 'Jane' } // Specific participants
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -774,8 +774,8 @@
             test.test('calculateFairShares excludes excluded people from all-participant expenses but not specific ones', () => {
                 const names = ['John', 'Jane', 'Restaurant'];
                 const transactions = [
-                    { type: 'expense', amount: 100, sharedWith: [] }, // All participants (should exclude Restaurant)
-                    { type: 'expense', amount: 20, sharedWith: ['John', 'Restaurant'] } // Specific participants (should include Restaurant)
+                    { type: 'expense', amount: 100, sharedWith: [], paidBy: 'John' }, // All participants (should exclude Restaurant)
+                    { type: 'expense', amount: 20, sharedWith: ['John', 'Restaurant'], paidBy: 'John' } // Specific participants (should include Restaurant)
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -791,7 +791,7 @@
             test.test('calculateFairShares with single participant expense', () => {
                 const names = ['John', 'Jane', 'Bob'];
                 const transactions = [
-                    { type: 'expense', amount: 45, sharedWith: ['John'] }
+                    { type: 'expense', amount: 45, sharedWith: ['John'], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -807,8 +807,8 @@
             test.test('calculateFairShares with percentage fee on single participant', () => {
                 const names = ['John', 'Jane', 'Bob'];
                 const transactions = [
-                    { type: 'expense', amount: 100, sharedWith: ['John'] },
-                    { type: 'percentage', percentage: 15, sharedWith: ['John'] }
+                    { type: 'expense', amount: 100, sharedWith: ['John'], paidBy: 'John' },
+                    { type: 'percentage', percentage: 15, sharedWith: ['John'], paidBy: 'John' }
                 ];
                 const peopleData = {
                     'John': { parts: 1, isExcluded: false },
@@ -855,7 +855,7 @@ Alice
                 test.assertEqual(result.people['Alice'].expenses[0].description, 'Restaurant dinner');
                 test.assertEqual(result.people['Alice'].expenses[1].description, 'Taxi ride');
                 test.assertEqual(result.people['Alice'].expenses[2].description, 'Coffee shop');
-                test.assertApproxEqual(result.people['Alice'].total, 140.50, 0.01);
+                test.assertEqual(result.people['Alice'].total, 140.50);
             });
 
             test.test('parses expenses with specific participants', () => {
@@ -952,8 +952,8 @@ John
                 const result = ExpenseLogic.parseExpenses(input);
 
                 test.assertEqual(result.people['John'].expenses.length, 3);
-                test.assertApproxEqual(result.people['John'].expenses[0].amount, 1234.56, 0.01);
-                test.assertApproxEqual(result.people['John'].expenses[1].amount, 123.45, 0.01);
+                test.assertEqual(result.people['John'].expenses[0].amount, 1234.56);
+                test.assertEqual(result.people['John'].expenses[1].amount, 123.45);
                 test.assertEqual(result.people['John'].expenses[2].amount, 1234);
             });
 
@@ -1277,6 +1277,329 @@ Jane`;
             });
         });
 
+        test.suite('Rounding Logic and Fair Remainder Distribution', () => {
+            test.test('perfect division gives equal shares to all', () => {
+                const input = `
+John
+174.38 Food
+
+Jane
+35.98 Drinks
+
+Bob
+Charlie`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+                const fairShares = CalculationLogic.calculateFairShares(
+                    Object.keys(result.people),
+                    result.transactions,
+                    result.people
+                );
+
+                // Total should be 210.36, which divides perfectly by 4
+                const totalPaid = Object.values(fairShares).reduce((sum, amount) => sum + amount, 0);
+                test.assertEqual(totalPaid, 210.36);
+
+                // Each person should pay exactly 52.59 (210.36/4)
+                test.assertEqual(fairShares.John, 52.59);
+                test.assertEqual(fairShares.Jane, 52.59);
+                test.assertEqual(fairShares.Bob, 52.59);
+                test.assertEqual(fairShares.Charlie, 52.59);
+
+            });
+
+            test.test('remainder goes to non-payers first', () => {
+                const input = `
+John
+174.39 Food
+
+Jane
+35.98 Drinks
+
+Bob
+Charlie`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+                const fairShares = CalculationLogic.calculateFairShares(
+                    Object.keys(result.people),
+                    result.transactions,
+                    result.people
+                );
+
+                // Total should be 210.37, which has 1 cent remainder when divided by 4
+                const totalPaid = Object.values(fairShares).reduce((sum, amount) => sum + amount, 0);
+                test.assertEqual(totalPaid, 210.37);
+
+                // John and Jane (payers) should have 52.59
+                test.assertEqual(fairShares.John, 52.59);
+                test.assertEqual(fairShares.Jane, 52.59);
+
+                // Bob and Charlie (non-payers) should split the remainder - one gets 52.60, other gets 52.59
+                test.assertTrue(
+                    (fairShares.Bob === 52.60 && fairShares.Charlie === 52.59) ||
+                    (fairShares.Bob === 52.59 && fairShares.Charlie === 52.60),
+                    'One of Bob or Charlie should get the extra cent'
+                );
+
+            });
+
+            test.test('distributes rounding differences fairly across multiple expenses', () => {
+                // Test with multiple expenses from different payers
+                const input = `
+John
+33.33 Dinner
+33.33 Lunch
+
+Jane
+33.34 Breakfast
+
+Bob
+Alice`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+                const fairShares = CalculationLogic.calculateFairShares(
+                    Object.keys(result.people),
+                    result.transactions,
+                    result.people
+                );
+
+                // Total should be 100.00
+                const totalPaid = Object.values(fairShares).reduce((sum, amount) => sum + amount, 0);
+                test.assertEqual(totalPaid, 100.00);
+
+                // Each person should pay 25.00
+                test.assertEqual(fairShares.John, 25.00);
+                test.assertEqual(fairShares.Jane, 25.00);
+                test.assertEqual(fairShares.Bob, 25.00);
+                test.assertEqual(fairShares.Alice, 25.00);
+            });
+
+            test.test('multiple remainders distributed by amount paid priority', () => {
+                const input = `
+John
+174.39 Food
+
+Jane
+35.98 Drinks
+
+Bob
+100.01 Snacks
+
+Charlie`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+                const fairShares = CalculationLogic.calculateFairShares(
+                    Object.keys(result.people),
+                    result.transactions,
+                    result.people
+                );
+
+                // Total should be 310.38
+                const totalPaid = Object.values(fairShares).reduce((sum, amount) => sum + amount, 0);
+                test.assertEqual(totalPaid, 310.38);
+
+                // Priority order: Charlie ($0), Jane ($35.98), Bob ($100.01), John ($174.39)
+                // Remainders should go to those who paid less first
+                test.assertTrue(fairShares.Charlie >= fairShares.Jane, 'Charlie (paid $0) should get >= Jane (paid $35.98)');
+                test.assertTrue(fairShares.Jane >= fairShares.Bob, 'Jane (paid $35.98) should get >= Bob (paid $100.01)');
+                test.assertTrue(fairShares.Bob >= fairShares.John, 'Bob (paid $100.01) should get >= John (paid $174.39)');
+
+            });
+
+            test.test('large remainder distributed equally first, then by priority', () => {
+                const input = `
+John
+50.01 Small expense
+
+Jane
+Bob
+Charlie`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+                const fairShares = CalculationLogic.calculateFairShares(
+                    Object.keys(result.people),
+                    result.transactions,
+                    result.people
+                );
+
+                // Total should be 50.01, which when divided by 4 gives 12.5025 each
+                // Floor gives 12.50 to everyone (50.00 total), 1 cent remainder
+                const totalPaid = Object.values(fairShares).reduce((sum, amount) => sum + amount, 0);
+                test.assertEqual(totalPaid, 50.01);
+
+                // Three people should get 12.50, one person should get 12.51
+                const values = Object.values(fairShares);
+                const count1250 = values.filter(v => v === 12.50).length;
+                const count1251 = values.filter(v => v === 12.51).length;
+
+                test.assertEqual(count1250, 3, 'Three people should get 12.50');
+                test.assertEqual(count1251, 1, 'One person should get 12.51');
+
+                // The person who gets 12.51 should be a non-payer (Jane, Bob, or Charlie)
+                test.assertTrue(
+                    fairShares.Jane === 12.51 || fairShares.Bob === 12.51 || fairShares.Charlie === 12.51,
+                    'Extra cent should go to a non-payer'
+                );
+
+            });
+        });
+
+        test.suite('CalculationLogic.createExpenseGroups', () => {
+            test.test('creates groups for all-participant expenses', () => {
+                const transactions = [
+                    { type: 'expense', amount: 100, paidBy: 'John', sharedWith: [] },
+                    { type: 'expense', amount: 50, paidBy: 'Jane', sharedWith: [] }
+                ];
+                const names = ['John', 'Jane', 'Bob'];
+                const peopleData = {
+                    'John': { parts: 1, isExcluded: false },
+                    'Jane': { parts: 1, isExcluded: false },
+                    'Bob': { parts: 1, isExcluded: false }
+                };
+
+                const groups = CalculationLogic.createExpenseGroups(transactions, names, peopleData);
+
+                test.assertEqual(Object.keys(groups).length, 1, 'Should create 1 group for all-participant expenses');
+                const group = Object.values(groups)[0];
+                test.assertEqual(group.participants.sort(), ['Bob', 'Jane', 'John'], 'All non-excluded participants should be included');
+                test.assertEqual(group.totalAmount, 150, 'Total amount should be sum of expenses');
+                test.assertEqual(group.payments.John, 10000, 'John should have paid 100.00 in cents');
+                test.assertEqual(group.payments.Jane, 5000, 'Jane should have paid 50.00 in cents');
+                test.assertEqual(group.payments.Bob, 0, 'Bob should have paid 0');
+            });
+
+            test.test('creates separate groups for specific participant expenses', () => {
+                const transactions = [
+                    { type: 'expense', amount: 100, paidBy: 'John', sharedWith: ['John', 'Jane'] },
+                    { type: 'expense', amount: 50, paidBy: 'Alice', sharedWith: ['Alice', 'Bob'] }
+                ];
+                const names = ['John', 'Jane', 'Bob', 'Alice'];
+                const peopleData = {
+                    'John': { parts: 1, isExcluded: false },
+                    'Jane': { parts: 1, isExcluded: false },
+                    'Bob': { parts: 1, isExcluded: false },
+                    'Alice': { parts: 1, isExcluded: false }
+                };
+
+                const groups = CalculationLogic.createExpenseGroups(transactions, names, peopleData);
+
+                test.assertEqual(Object.keys(groups).length, 2, 'Should create 2 separate groups');
+
+                const johnGroup = Object.values(groups).find(g => g.participants.includes('John') && g.participants.includes('Jane'));
+                const aliceGroup = Object.values(groups).find(g => g.participants.includes('Alice') && g.participants.includes('Bob'));
+
+                test.assertTrue(johnGroup, 'Should have John-Jane group');
+                test.assertTrue(aliceGroup, 'Should have Alice-Bob group');
+                test.assertEqual(johnGroup.participants.sort(), ['Jane', 'John'], 'John group should have John and Jane');
+                test.assertEqual(aliceGroup.participants.sort(), ['Alice', 'Bob'], 'Alice group should have Alice and Bob');
+                test.assertEqual(johnGroup.totalAmount, 100, 'John group total should be 100');
+                test.assertEqual(aliceGroup.totalAmount, 50, 'Alice group total should be 50');
+            });
+
+            test.test('excludes excluded people from all-participant expenses', () => {
+                const transactions = [
+                    { type: 'expense', amount: 100, paidBy: 'John', sharedWith: [] }
+                ];
+                const names = ['John', 'Jane', 'Restaurant!'];
+                const peopleData = {
+                    'John': { parts: 1, isExcluded: false },
+                    'Jane': { parts: 1, isExcluded: false },
+                    'Restaurant!': { parts: 1, isExcluded: true }
+                };
+
+                const groups = CalculationLogic.createExpenseGroups(transactions, names, peopleData);
+
+                test.assertEqual(Object.keys(groups).length, 1, 'Should create 1 group');
+                const group = Object.values(groups)[0];
+                test.assertEqual(group.participants.sort(), ['Jane', 'John'], 'Should exclude Restaurant!');
+                test.assertEqual(group.totalAmount, 100, 'Total amount should be 100');
+            });
+
+            test.test('includes excluded people when explicitly specified', () => {
+                const transactions = [
+                    { type: 'expense', amount: 100, paidBy: 'John', sharedWith: ['John', 'Restaurant!'] }
+                ];
+                const names = ['John', 'Jane', 'Restaurant!'];
+                const peopleData = {
+                    'John': { parts: 1, isExcluded: false },
+                    'Jane': { parts: 1, isExcluded: false },
+                    'Restaurant!': { parts: 1, isExcluded: true }
+                };
+
+                const groups = CalculationLogic.createExpenseGroups(transactions, names, peopleData);
+
+                test.assertEqual(Object.keys(groups).length, 1, 'Should create 1 group');
+                const group = Object.values(groups)[0];
+                test.assertEqual(group.participants.sort(), ['John', 'Restaurant!'], 'Should include Restaurant! when explicitly specified');
+                test.assertEqual(group.totalAmount, 100, 'Total amount should be 100');
+            });
+
+            test.test('handles payer not in sharedWith list', () => {
+                const transactions = [
+                    { type: 'expense', amount: 100, paidBy: 'John', sharedWith: ['Jane', 'Bob'] }
+                ];
+                const names = ['John', 'Jane', 'Bob'];
+                const peopleData = {
+                    'John': { parts: 1, isExcluded: false },
+                    'Jane': { parts: 1, isExcluded: false },
+                    'Bob': { parts: 1, isExcluded: false }
+                };
+
+                const groups = CalculationLogic.createExpenseGroups(transactions, names, peopleData);
+
+                test.assertEqual(Object.keys(groups).length, 1, 'Should create 1 group');
+                const group = Object.values(groups)[0];
+                test.assertEqual(group.participants.sort(), ['Bob', 'Jane'], 'Should only include Jane and Bob (not John)');
+                test.assertEqual(group.totalAmount, 100, 'Total amount should be 100');
+                test.assertTrue(group.payers.has('John'), 'John should be tracked as a payer');
+                test.assertEqual(group.payments.Jane, 0, 'Jane should have paid 0');
+                test.assertEqual(group.payments.Bob, 0, 'Bob should have paid 0');
+                test.assertEqual(group.payments.John, undefined, 'John should not be in payments since not a participant');
+            });
+
+            test.test('consolidates multiple expenses with same participants', () => {
+                const transactions = [
+                    { type: 'expense', amount: 100, paidBy: 'John', sharedWith: ['John', 'Jane'] },
+                    { type: 'expense', amount: 50, paidBy: 'Jane', sharedWith: ['Jane', 'John'] }
+                ];
+                const names = ['John', 'Jane'];
+                const peopleData = {
+                    'John': { parts: 1, isExcluded: false },
+                    'Jane': { parts: 1, isExcluded: false }
+                };
+
+                const groups = CalculationLogic.createExpenseGroups(transactions, names, peopleData);
+
+                test.assertEqual(Object.keys(groups).length, 1, 'Should consolidate into 1 group');
+                const group = Object.values(groups)[0];
+                test.assertEqual(group.participants.sort(), ['Jane', 'John'], 'Should have John and Jane');
+                test.assertEqual(group.totalAmount, 150, 'Should consolidate total amounts');
+                test.assertEqual(group.payments.John, 10000, 'John should have paid 100');
+                test.assertEqual(group.payments.Jane, 5000, 'Jane should have paid 50');
+            });
+
+            test.test('handles empty transactions array', () => {
+                const groups = CalculationLogic.createExpenseGroups([], ['John', 'Jane'], { 'John': { parts: 1 }, 'Jane': { parts: 1 } });
+                test.assertEqual(Object.keys(groups).length, 0, 'Should return empty object for no transactions');
+            });
+
+            test.test('filters out non-expense transactions', () => {
+                const transactions = [
+                    { type: 'expense', amount: 100, paidBy: 'John', sharedWith: [] },
+                    { type: 'settlement', amount: 25, paidBy: 'John', settleTo: 'Jane' },
+                    { type: 'percentage', percentage: 10, paidBy: 'John', sharedWith: [] }
+                ];
+                const names = ['John', 'Jane'];
+                const peopleData = { 'John': { parts: 1 }, 'Jane': { parts: 1 } };
+
+                const groups = CalculationLogic.createExpenseGroups(transactions, names, peopleData);
+
+                test.assertEqual(Object.keys(groups).length, 1, 'Should only process expense transactions');
+                const group = Object.values(groups)[0];
+                test.assertEqual(group.totalAmount, 100, 'Should only include expense amount');
+            });
+        });
+
         test.suite('Test Framework Validation', () => {
             test.test('assertApproxEqual works with positive tolerance', () => {
                 // These should pass
@@ -1350,6 +1673,200 @@ Jane`;
                     test.assertTrue(error.message.includes('Expected error message to contain'));
                 }
                 test.assertTrue(testFailed, 'assertThrows should fail when error message does not match');
+            });
+        });
+
+        test.suite('Group-Based Settlement Logic', () => {
+            test.test('correctly splits costs and settlements within expense groups', () => {
+                const input = `
+John
+100.00 - John, Jane, Bob
+
+Jane
+Bob
+
+Alice
+100.00 - Alice, Carlos, Luan
+
+Carlos
+Luan`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+
+                // Verify people setup
+                test.assertEqual(Object.keys(result.people).length, 6);
+                test.assertTrue(result.people['John'], 'John should be parsed');
+                test.assertTrue(result.people['Jane'], 'Jane should be parsed');
+                test.assertTrue(result.people['Bob'], 'Bob should be parsed');
+                test.assertTrue(result.people['Alice'], 'Alice should be parsed');
+                test.assertTrue(result.people['Carlos'], 'Carlos should be parsed');
+                test.assertTrue(result.people['Luan'], 'Luan should be parsed');
+
+                // Verify transactions
+                test.assertEqual(result.transactions.length, 2);
+                test.assertEqual(result.transactions[0].type, 'expense');
+                test.assertEqual(result.transactions[0].amount, 100);
+                test.assertEqual(result.transactions[0].paidBy, 'John');
+                test.assertEqual(result.transactions[0].sharedWith.sort(), ['Bob', 'Jane', 'John']);
+
+                test.assertEqual(result.transactions[1].type, 'expense');
+                test.assertEqual(result.transactions[1].amount, 100);
+                test.assertEqual(result.transactions[1].paidBy, 'Alice');
+                test.assertEqual(result.transactions[1].sharedWith.sort(), ['Alice', 'Carlos', 'Luan']);
+
+                // Calculate fair shares
+                const names = Object.keys(result.people);
+                const fairShares = CalculationLogic.calculateFairShares(names, result.transactions, result.people);
+
+                // Verify total costs
+                const totalCosts = Object.values(fairShares).reduce((sum, amount) => sum + amount, 0);
+                test.assertEqual(totalCosts, 200.00, 'Total costs should be 200.00');
+
+                // Verify expected fair shares with proper rounding
+                test.assertEqual(fairShares.John, 33.33, 'John should pay 33.33');
+                test.assertEqual(fairShares.Jane, 33.34, 'Jane should pay 33.34 (gets remainder cent)');
+                test.assertEqual(fairShares.Bob, 33.33, 'Bob should pay 33.33');
+                test.assertEqual(fairShares.Alice, 33.33, 'Alice should pay 33.33');
+                test.assertEqual(fairShares.Carlos, 33.34, 'Carlos should pay 33.34 (gets remainder cent)');
+                test.assertEqual(fairShares.Luan, 33.33, 'Luan should pay 33.33');
+
+                // Use the helper function to verify expense groups structure
+                const expenseGroups = CalculationLogic.createExpenseGroups(result.transactions, Object.keys(result.people), result.people);
+
+                // Create a map for easier verification
+                const settlementMap = {};
+                const settlements = CalculationLogic.calculateSettlements(result.people, result.transactions);
+                settlements.forEach(settlement => {
+                    const key = `${settlement.from}-${settlement.to}`;
+                    settlementMap[key] = settlement.amount;
+                });
+
+                // Verify expense groups are correctly structured
+                const groupKeys = Object.keys(expenseGroups);
+                test.assertEqual(groupKeys.length, 2, 'Should have 2 expense groups');
+
+                // Find the groups
+                const johnGroup = Object.values(expenseGroups).find(g => g.participants.includes('John') && g.participants.includes('Jane'));
+                const aliceGroup = Object.values(expenseGroups).find(g => g.participants.includes('Alice') && g.participants.includes('Carlos'));
+
+                test.assertTrue(johnGroup, 'Should have John\'s group with John, Jane, Bob');
+                test.assertTrue(aliceGroup, 'Should have Alice\'s group with Alice, Carlos, Luan');
+                test.assertEqual(johnGroup.participants.sort(), ['Bob', 'Jane', 'John'], 'John\'s group participants');
+                test.assertEqual(aliceGroup.participants.sort(), ['Alice', 'Carlos', 'Luan'], 'Alice\'s group participants');
+
+                // Verify we have the expected number of settlements
+                test.assertEqual(settlements.length, 4, 'Should have 4 settlement transactions');
+
+                // Verify settlements are within the correct groups
+                // John's group: Jane and Bob should pay John
+                // Alice's group: Carlos and Luan should pay Alice
+                test.assertTrue(settlementMap['Jane-John'] !== undefined, 'Jane should pay John');
+                test.assertTrue(settlementMap['Bob-John'] !== undefined, 'Bob should pay John');
+                test.assertEqual(settlementMap['Jane-John'], 33.34, 'Jane should pay 33.34 to John');
+                test.assertEqual(settlementMap['Bob-John'], 33.33, 'Bob should pay 33.33 to John');
+
+                // Alice's group: Carlos and Luan should pay Alice
+                test.assertTrue(settlementMap['Carlos-Alice'] !== undefined, 'Carlos should pay Alice');
+                test.assertTrue(settlementMap['Luan-Alice'] !== undefined, 'Luan should pay Alice');
+                test.assertEqual(settlementMap['Carlos-Alice'], 33.34, 'Carlos should pay 33.34 to Alice');
+                test.assertEqual(settlementMap['Luan-Alice'], 33.33, 'Luan should pay 33.33 to Alice');
+
+                // Verify no cross-group settlements
+                test.assertTrue(settlementMap['Carlos-John'] === undefined, 'Carlos should NOT pay John (wrong group)');
+                test.assertTrue(settlementMap['Luan-John'] === undefined, 'Luan should NOT pay John (wrong group)');
+                test.assertTrue(settlementMap['Jane-Alice'] === undefined, 'Jane should NOT pay Alice (wrong group)');
+                test.assertTrue(settlementMap['Bob-Alice'] === undefined, 'Bob should NOT pay Alice (wrong group)');
+            });
+
+            test.test('handles mixed expense groups with some cross-group settlements when needed', () => {
+                const input = `
+John
+150.00 - John, Jane, Bob, Alice
+
+Jane
+Bob
+
+Alice
+50.00 - Alice, Carlos
+
+Carlos`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+
+                // Calculate expected balances manually
+                // John's group: 150/4 = 37.50 each. John paid 150, so is owed 112.50
+                // Alice's group: 50/2 = 25.00 each. Alice paid 50, so is owed 25.00
+                // Net: John +112.50, Jane -37.50, Bob -37.50, Alice -12.50, Carlos -25.00
+
+                // Use createExpenseGroups to verify group structure
+                const expenseGroups = CalculationLogic.createExpenseGroups(result.transactions, Object.keys(result.people), result.people);
+                const groupKeys = Object.keys(expenseGroups);
+                test.assertEqual(groupKeys.length, 2, 'Should have 2 expense groups');
+
+                const settlements = CalculationLogic.calculateSettlements(result.people, result.transactions);
+
+                // Verify settlements exist and are logical
+                test.assertTrue(settlements.length > 0, 'Should have some settlements');
+
+                // Create settlement map for verification
+                const settlementMap = {};
+                settlements.forEach(settlement => {
+                    const key = `${settlement.from}-${settlement.to}`;
+                    settlementMap[key] = settlement.amount;
+                });
+
+                // Calculate total amounts each person pays/receives
+                const netPayments = {};
+                Object.keys(result.people).forEach(name => {
+                    netPayments[name] = 0;
+                });
+
+                settlements.forEach(settlement => {
+                    netPayments[settlement.from] -= settlement.amount; // Money paid out
+                    netPayments[settlement.to] += settlement.amount;   // Money received
+                });
+
+                // Verify the net effect matches expected balances
+                test.assertEqual(netPayments.John, 112.50, 'John should net receive 112.50');
+                test.assertEqual(netPayments.Jane, -37.50, 'Jane should net pay 37.50');
+                test.assertEqual(netPayments.Bob, -37.50, 'Bob should net pay 37.50');
+                test.assertEqual(netPayments.Alice, -12.50, 'Alice should net pay 12.50');
+                test.assertEqual(netPayments.Carlos, -25.00, 'Carlos should net pay 25.00');
+
+                // Verify that Carlos primarily settles within his group when possible
+                // Carlos might pay Alice directly, or the payment might be forwarded to John
+                // Both are correct depending on the optimization strategy
+                const carlosPaysAlice = settlementMap['Carlos-Alice'] !== undefined;
+                const carlosPaysJohn = settlementMap['Carlos-John'] !== undefined;
+
+                test.assertTrue(carlosPaysAlice || carlosPaysJohn,
+                    'Carlos should pay either Alice (same group) or John (if forwarded)');
+
+                // Verify Jane and Bob pay John (they're only in John's group)
+                test.assertTrue(settlementMap['Jane-John'] !== undefined, 'Jane should pay John');
+                test.assertTrue(settlementMap['Bob-John'] !== undefined, 'Bob should pay John');
+            });
+
+            test.test('prioritizes original order for remainder distribution within groups', () => {
+                const input = `
+Adam
+100.00 - Adam, Bob, Charlie
+
+Bob
+Charlie`;
+
+                const result = ExpenseLogic.parseExpenses(input);
+                const fairShares = CalculationLogic.calculateFairShares(
+                    Object.keys(result.people),
+                    result.transactions,
+                    result.people
+                );
+
+                // Adam paid, so Bob and Charlie should split the 100.00
+                // Bob comes first in the original list, so should get the remainder cent
+                test.assertEqual(fairShares.Adam, 33.33, 'Adam should pay 33.33');
+                test.assertEqual(fairShares.Bob, 33.34, 'Bob should pay 33.34 (first in list, gets remainder)');
+                test.assertEqual(fairShares.Charlie, 33.33, 'Charlie should pay 33.33');
             });
         });
 
