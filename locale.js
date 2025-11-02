@@ -2,6 +2,15 @@
 // Localization constants and strings
 // This file should be included before lib.js and ui.js
 
+// Environment detection
+const isBrowser = typeof window !== 'undefined';
+
+// Navigator fallback for Node.js environment
+const navigator = isBrowser ? window.navigator : { 
+    language: 'en-US',
+    userLanguage: 'en-US'
+};
+
 // Locale detection and management
 function getLocale() {
     const browserLang = navigator.language || navigator.userLanguage || 'en-US';
@@ -234,3 +243,8 @@ const LOCALE = {
     },
 
 };
+
+// Conditional exports for Node.js compatibility
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { LOCALE, getLocale };
+}

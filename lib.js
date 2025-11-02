@@ -1092,3 +1092,17 @@ function formatTemplate(template, replacements) {
     }
     return result;
 }
+
+// Conditional exports for Node.js compatibility
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        ValidationLogic,
+        NumberLogic,
+        PersonLogic,
+        TransactionLogic,
+        CalculationLogic,
+        ExpenseLogic,
+        formatTemplate,
+        CONSTANTS
+    };
+}
