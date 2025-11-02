@@ -116,7 +116,9 @@ COMMIT_MSG="Release v${NEW_VERSION}
 - Version bump: ${CURRENT_VERSION} → ${NEW_VERSION} (${VERSION_TYPE})
 - Update file hashes for deployment
   - CSS: $CSS_HASH
-  - JS:  $JS_HASH
+  - JS (Locale): $LOCALE_HASH
+  - JS (Lib): $LIB_HASH
+  - JS (UI): $UI_HASH
 "
 
 # Commit changes
