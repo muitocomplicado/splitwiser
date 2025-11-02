@@ -913,6 +913,9 @@ function copySummary() {
         const names = Object.keys(currentPeopleData);
         if (names.length === 0) return;
 
+        // First format and update the input text to ensure consistency
+        TextareaUtils.applyFormattedText();
+
         const totalExpenses = CalculationLogic.calculateTotalExpenses(currentTransactions);
         const fairShares = CalculationLogic.calculateFairShares(names, currentTransactions, currentPeopleData);
         const settlementTransactions = CalculationLogic.getSettlementTransactions(currentTransactions);
@@ -927,9 +930,6 @@ function copySummary() {
             alert(LOCALE.getString('NOTHING_TO_COPY'));
             return;
         }
-
-        // Also format and update the input text
-        TextareaUtils.applyFormattedText();
 
         // Use the copyToClipboard function from lib.js
         copyToClipboard(textSummary).then(() => {

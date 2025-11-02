@@ -21,5 +21,6 @@ Splitwiser is a vanilla HTML/CSS/JavaScript PWA for expense splitting calculatio
 - Template-based HTML generation for dynamic content
 - Debounced input processing for performance
 
-## Development
-- **Testing**: Don't run any server or browser to test any changes.
+## Testing
+- DO NOT run any server or browser to test any changes.
+- There's a `tests.html` file that contains logic tests and will be run manually.
