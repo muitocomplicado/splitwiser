@@ -1833,18 +1833,11 @@ Carlos`;
                 test.assertEqual(netPayments.Alice, -12.50, 'Alice should net pay 12.50');
                 test.assertEqual(netPayments.Carlos, -25.00, 'Carlos should net pay 25.00');
 
-                // Verify that Carlos primarily settles within his group when possible
-                // Carlos might pay Alice directly, or the payment might be forwarded to John
-                // Both are correct depending on the optimization strategy
-                const carlosPaysAlice = settlementMap['Carlos-Alice'] !== undefined;
-                const carlosPaysJohn = settlementMap['Carlos-John'] !== undefined;
-
-                test.assertTrue(carlosPaysAlice || carlosPaysJohn,
-                    'Carlos should pay either Alice (same group) or John (if forwarded)');
-
-                // Verify Jane and Bob pay John (they're only in John's group)
-                test.assertTrue(settlementMap['Jane-John'] !== undefined, 'Jane should pay John');
-                test.assertTrue(settlementMap['Bob-John'] !== undefined, 'Bob should pay John');
+                // Verify specific payment amounts to John
+                test.assertEqual(settlementMap['Jane-John'], 37.50, 'Jane should pay 37.50 to John');
+                test.assertEqual(settlementMap['Bob-John'], 37.50, 'Bob should pay 37.50 to John');
+                test.assertEqual(settlementMap['Carlos-John'], 25.00, 'Carlos should pay 25.00 to John (forwarded through Alice)');
+                test.assertEqual(settlementMap['Alice-John'], 12.50, 'Alice should pay 12.50 to John');
             });
 
             test.test('prioritizes original order for remainder distribution within groups', () => {

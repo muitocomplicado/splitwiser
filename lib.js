@@ -701,34 +701,36 @@ const CalculationLogic = {
 
             participants.forEach(person => {
                 const parts = peopleData[person] ? peopleData[person].parts : 1;
-                const exactShareCents = (totalAmountCents * parts) / totalParts;
-                const floorShareCents = Math.floor(exactShareCents);
-                groupShares[person] = floorShareCents;
-                groupRemainderCents += exactShareCents - floorShareCents;
+                // Use integer arithmetic to avoid floating point issues
+                const exactShareCents = Math.floor((totalAmountCents * parts) / totalParts);
+                const remainderCents = (totalAmountCents * parts) % totalParts;
+                groupShares[person] = exactShareCents;
+                groupRemainderCents += remainderCents;
             });
 
-            // Round the group remainder to nearest cent
-            groupRemainderCents = Math.round(groupRemainderCents);
+            // Convert accumulated remainders to cents by dividing by totalParts
+            const additionalCents = Math.floor(groupRemainderCents / totalParts);
+            const finalRemainderCents = groupRemainderCents % totalParts;
 
             // Distribute remainder cents within this group's participants
-            if (groupRemainderCents > 0) {
+            if (finalRemainderCents > 0 || additionalCents > 0) {
                 // Create priority list for this group's participants
                 const priorityList = participants.map(person => {
                     const parts = peopleData[person] ? peopleData[person].parts : 1;
-                    const exactShareCents = (totalAmountCents * parts) / totalParts;
+                    const remainderCents = (totalAmountCents * parts) % totalParts;
                     return {
                         person,
                         originalIndex: names.indexOf(person), // Keep original order from names list for tie-breaking
-                        fractionalRemainder: exactShareCents - Math.floor(exactShareCents),
-                        amountPaid: payments[person] || 0
+                        remainderCents: remainderCents,
+                        amountPaid: payments[person] || 0,
+                        parts: parts
                     };
                 });
 
-                // Sort by fractional remainder descending, then by amount paid ascending (paid less first), then by original order
+                // Sort by remainder cents descending, then by amount paid ascending (paid less first), then by original order
                 priorityList.sort((a, b) => {
-                    const remainderDiff = b.fractionalRemainder - a.fractionalRemainder;
-                    if (Math.abs(remainderDiff) > 0.0001) {
-                        return remainderDiff;
+                    if (a.remainderCents !== b.remainderCents) {
+                        return b.remainderCents - a.remainderCents;
                     }
                     // People who paid less get priority for remainder cents
                     if (a.amountPaid !== b.amountPaid) {
@@ -737,9 +739,30 @@ const CalculationLogic = {
                     return a.originalIndex - b.originalIndex; // Tie-breaker by original order from names list
                 });
 
-                // Distribute remainder cents to participants with largest fractional remainders
-                for (let i = 0; i < groupRemainderCents && i < priorityList.length; i++) {
+                // Distribute final remainder cents to participants with largest remainders
+                for (let i = 0; i < finalRemainderCents && i < priorityList.length; i++) {
                     groupShares[priorityList[i].person] += 1;
+                }
+
+                // Distribute additional cents proportionally within this group
+                if (additionalCents > 0) {
+                    let remainingAdditionalCents = additionalCents;
+                    priorityList.forEach((item, index) => {
+                        if (remainingAdditionalCents <= 0) return;
+                        
+                        // Calculate proportional share of additional cents for this person
+                        const proportionalShare = Math.floor((remainingAdditionalCents * item.parts) / totalParts);
+                        if (proportionalShare > 0) {
+                            groupShares[item.person] += proportionalShare;
+                            remainingAdditionalCents -= proportionalShare;
+                        }
+                    });
+                    
+                    // If there are still remaining cents due to rounding, distribute them one by one
+                    for (let i = 0; remainingAdditionalCents > 0 && i < priorityList.length; i++) {
+                        groupShares[priorityList[i].person] += 1;
+                        remainingAdditionalCents--;
+                    }
                 }
             }
 
@@ -751,13 +774,9 @@ const CalculationLogic = {
 
         
 
-        // Convert cents to dollars for base fair shares
-        const fairShares = {};
-        names.forEach(name => {
-            fairShares[name] = parseFloat((totalOwed[name] / 100).toFixed(2));
-        });
+        
 
-        // Apply percentage fees to each person's total
+        // Apply percentage fees to each person's total using integer cents
         const percentageFees = this.getPercentageTransactions(transactions);
 
         // Apply percentage fees based on who they affect (sharedWith), not who paid them
@@ -773,12 +792,19 @@ const CalculationLogic = {
             }
 
             affectedPeople.forEach(personName => {
-                if (fairShares[personName] !== undefined) {
-                    const currentTotal = fairShares[personName];
-                    const feeAmount = (currentTotal * fee.percentage) / 100;
-                    fairShares[personName] = parseFloat((fairShares[personName] + feeAmount).toFixed(2));
+                if (totalOwed[personName] !== undefined) {
+                    // Calculate fee in cents to avoid floating point
+                    const currentTotalCents = totalOwed[personName];
+                    const feeAmountCents = Math.round((currentTotalCents * fee.percentage) / 100);
+                    totalOwed[personName] += feeAmountCents;
                 }
             });
+        });
+
+        // Convert cents to dollars for final fair shares
+        const fairShares = {};
+        names.forEach(name => {
+            fairShares[name] = parseFloat((totalOwed[name] / 100).toFixed(2));
         });
 
         return fairShares;
@@ -792,7 +818,7 @@ const CalculationLogic = {
 
             const fairShares = this.calculateFairShares(names, transactions, people);
 
-            // Calculate balances accounting for existing settlements
+            // Calculate initial balances (what each person paid vs should pay)
             const balances = {};
             names.forEach(name => {
                 balances[name] = 0;
@@ -816,107 +842,185 @@ const CalculationLogic = {
                 balances[name] = totalPaid - totalShouldPay;
             });
 
-            // Apply existing settlements to adjust balances
-            this.getSettlementTransactions(transactions).forEach(settlement => {
-                if (settlement.settleTo) {
-                    // Settlement from paidBy to settleTo
-                    balances[settlement.paidBy] += settlement.amount; // Payer owes less
-                    balances[settlement.settleTo] -= settlement.amount; // Recipient is owed less
-                }
-            });
-
-            // Create expense group mappings to prioritize settlements within groups
+            // Group-first settlement approach
             const expenseGroups = this.createExpenseGroups(transactions, names, people);
+            const allSettlements = [];
+            const remainingBalances = { ...balances };
 
-            // Calculate settlements prioritizing within-group settlements
-            const settlements = [];
-            const processedDebts = new Set(); // Track which debt relationships have been processed
-
-            // First, try to settle within each expense group
+            // First: Calculate settlements within each expense group
             Object.values(expenseGroups).forEach(group => {
-                const { participants, payers } = group;
+                const groupParticipants = group.participants;
+                const groupBalances = {};
                 
-                // Find debtors and creditors within this group
-                const groupDebtors = participants.filter(name => balances[name] < -0.01)
-                    .map(name => ({ name, amount: Math.abs(balances[name]) }))
-                    .sort((a, b) => b.amount - a.amount);
-                
-                const groupCreditors = participants.filter(name => balances[name] > 0.01)
-                    .map(name => ({ name, amount: balances[name] }))
-                    .sort((a, b) => b.amount - a.amount);
+                // Extract balances for this group's participants
+                groupParticipants.forEach(person => {
+                    groupBalances[person] = remainingBalances[person] || 0;
+                });
 
-                // Settle within the group
-                let i = 0, j = 0;
-                while (i < groupDebtors.length && j < groupCreditors.length) {
-                    const debtor = groupDebtors[i];
-                    const creditor = groupCreditors[j];
-                    const amount = Math.min(debtor.amount, creditor.amount);
+                // Calculate settlements within this group
+                const groupSettlements = this.calculateGroupSettlements(groupBalances, groupParticipants);
+                allSettlements.push(...groupSettlements);
 
-                    if (amount > 0.01) {
-                        const debtKey = `${debtor.name}-${creditor.name}`;
-                        if (!processedDebts.has(debtKey)) {
-                            settlements.push({
-                                from: debtor.name,
-                                to: creditor.name,
-                                amount: amount
-                            });
-                            processedDebts.add(debtKey);
-                        }
-
-                        // Update balances
-                        balances[debtor.name] += amount;
-                        balances[creditor.name] -= amount;
-                        
-                        debtor.amount -= amount;
-                        creditor.amount -= amount;
-                    }
-
-                    if (debtor.amount < 0.01) i++;
-                    if (creditor.amount < 0.01) j++;
-                }
+                // Update remaining balances
+                groupSettlements.forEach(settlement => {
+                    remainingBalances[settlement.from] += settlement.amount;
+                    remainingBalances[settlement.to] -= settlement.amount;
+                });
             });
 
-            // Then settle any remaining balances across groups
-            const remainingDebtors = names.filter(name => balances[name] < -0.01).map(name => ({
-                name,
-                amount: Math.abs(balances[name])
-            })).sort((a, b) => b.amount - a.amount);
-
-            const remainingCreditors = names.filter(name => balances[name] > 0.01).map(name => ({
-                name,
-                amount: balances[name]
-            })).sort((a, b) => b.amount - a.amount);
-
-            let i = 0, j = 0;
-            while (i < remainingDebtors.length && j < remainingCreditors.length) {
-                const debtor = remainingDebtors[i];
-                const creditor = remainingCreditors[j];
-                const amount = Math.min(debtor.amount, creditor.amount);
-
-                if (amount > 0.01) {
-                    const debtKey = `${debtor.name}-${creditor.name}`;
-                    if (!processedDebts.has(debtKey)) {
-                        settlements.push({
-                            from: debtor.name,
-                            to: creditor.name,
-                            amount: amount
-                        });
-                        processedDebts.add(debtKey);
-                    }
-
-                    debtor.amount -= amount;
-                    creditor.amount -= amount;
-                }
-
-                if (debtor.amount < 0.01) i++;
-                if (creditor.amount < 0.01) j++;
+            // Second: Handle any remaining balances with cross-group settlements
+            const remainingNames = Object.keys(remainingBalances).filter(name => Math.abs(remainingBalances[name]) > 0.01);
+            if (remainingNames.length > 0) {
+                const crossGroupSettlements = this.calculateIdealSettlements(remainingBalances, remainingNames);
+                allSettlements.push(...crossGroupSettlements);
             }
 
+            // Apply actual settlements and detect overpayments
+            const actualSettlements = this.getSettlementTransactions(transactions);
+            const overpaymentAdjustments = this.processActualSettlements(balances, actualSettlements, allSettlements);
+            
+            // Add overpayment adjustments to the settlements list
+            const settlements = [...allSettlements, ...overpaymentAdjustments];
             return settlements;
+            
         } catch (error) {
             console.error('Error calculating settlements:', error);
             return [];
         }
+    },
+
+    // Calculate settlements within a single expense group
+    calculateGroupSettlements(groupBalances, groupParticipants) {
+        const settlements = [];
+        const processedDebts = new Set();
+        
+        // Create debtors and creditors lists for this group
+        const debtors = groupParticipants
+            .filter(name => groupBalances[name] < -0.01)
+            .map(name => ({ name, amount: Math.abs(groupBalances[name]) }))
+            .sort((a, b) => b.amount - a.amount);
+        
+        const creditors = groupParticipants
+            .filter(name => groupBalances[name] > 0.01)
+            .map(name => ({ name, amount: groupBalances[name] }))
+            .sort((a, b) => b.amount - a.amount);
+
+        // Calculate optimal settlements within this group
+        let i = 0, j = 0;
+        while (i < debtors.length && j < creditors.length) {
+            const debtor = debtors[i];
+            const creditor = creditors[j];
+            const amount = Math.min(debtor.amount, creditor.amount);
+
+            if (amount > 0.01) {
+                const debtKey = `${debtor.name}-${creditor.name}`;
+                if (!processedDebts.has(debtKey)) {
+                    settlements.push({
+                        from: debtor.name,
+                        to: creditor.name,
+                        amount: amount
+                    });
+                    processedDebts.add(debtKey);
+                }
+
+                // Update balances
+                groupBalances[debtor.name] += amount;
+                groupBalances[creditor.name] -= amount;
+                
+                debtor.amount -= amount;
+                creditor.amount -= amount;
+            }
+
+            if (debtor.amount < 0.01) i++;
+            if (creditor.amount < 0.01) j++;
+        }
+
+        return settlements;
+    },
+
+    // Calculate ideal settlements based on current balances
+    calculateIdealSettlements(balances, names) {
+        const settlements = [];
+        const processedDebts = new Set();
+        
+        // Create debtors and creditors lists
+        const debtors = names.filter(name => balances[name] < -0.01)
+            .map(name => ({ name, amount: Math.abs(balances[name]) }))
+            .sort((a, b) => b.amount - a.amount);
+        
+        const creditors = names.filter(name => balances[name] > 0.01)
+            .map(name => ({ name, amount: balances[name] }))
+            .sort((a, b) => b.amount - a.amount);
+
+        // Calculate optimal settlements
+        let i = 0, j = 0;
+        while (i < debtors.length && j < creditors.length) {
+            const debtor = debtors[i];
+            const creditor = creditors[j];
+            const amount = Math.min(debtor.amount, creditor.amount);
+
+            if (amount > 0.01) {
+                const debtKey = `${debtor.name}-${creditor.name}`;
+                if (!processedDebts.has(debtKey)) {
+                    settlements.push({
+                        from: debtor.name,
+                        to: creditor.name,
+                        amount: amount
+                    });
+                    processedDebts.add(debtKey);
+                }
+
+                // Update balances
+                balances[debtor.name] += amount;
+                balances[creditor.name] -= amount;
+                
+                debtor.amount -= amount;
+                creditor.amount -= amount;
+            }
+
+            if (debtor.amount < 0.01) i++;
+            if (creditor.amount < 0.01) j++;
+        }
+
+        return settlements;
+    },
+
+    // Process actual settlements and detect overpayments
+    processActualSettlements(balances, actualSettlements, idealSettlements) {
+        const overpaymentAdjustments = [];
+        
+        // Create a map of ideal settlements for easy lookup
+        const idealSettlementMap = new Map();
+        idealSettlements.forEach(settlement => {
+            const key = `${settlement.from}-${settlement.to}`;
+            idealSettlementMap.set(key, settlement.amount);
+        });
+
+        actualSettlements.forEach(settlement => {
+            if (settlement.settleTo && settlement.paidBy) {
+                const key = `${settlement.paidBy}-${settlement.settleTo}`;
+                const idealAmount = idealSettlementMap.get(key) || 0;
+                const actualAmount = settlement.amount;
+                
+                if (actualAmount > idealAmount + 0.01) {
+                    // Overpayment detected
+                    const overpayment = actualAmount - idealAmount;
+                    
+                    // Create reverse settlement from recipient back to payer
+                    overpaymentAdjustments.push({
+                        from: settlement.settleTo,
+                        to: settlement.paidBy,
+                        amount: overpayment
+                    });
+                }
+                
+                // Apply the actual settlement to balances
+                balances[settlement.paidBy] += actualAmount;
+                balances[settlement.settleTo] -= actualAmount;
+            }
+        });
+
+        return overpaymentAdjustments;
     },
 
     // Utility functions for expense calculations
